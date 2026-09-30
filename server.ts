@@ -563,6 +563,18 @@ app.get('/api/launch-script/download', (req, res) => {
   }
 });
 
+// Download deploy-master-engine.ps1
+app.get('/api/deploy-engine/download', (req, res) => {
+  const filePath = path.join(__dirname, 'deploy-master-engine.ps1');
+  if (fs.existsSync(filePath)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="deploy-master-engine.ps1"');
+    res.send(fs.readFileSync(filePath, 'utf-8'));
+  } else {
+    res.status(404).send('deploy-master-engine.ps1 not found.');
+  }
+});
+
 // Download git-init-fix.ps1
 app.get('/api/git-init-fix/download', (req, res) => {
   const filePath = path.join(__dirname, 'git-init-fix.ps1');
