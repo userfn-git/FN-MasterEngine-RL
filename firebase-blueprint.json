@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile and competitive rank settings",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Auth UID" },
+        "displayName": { "type": "string", "description": "Player gamer tag" },
+        "email": { "type": "string", "description": "Player email" },
+        "rank": { "type": "string", "description": "Rocket League competitive rank (e.g., Supersonic Legend, Grand Champion)" },
+        "internalDeadzone": { "type": "number", "description": "Calibrated internal deadzone (default 0.05)" },
+        "dodgeDeadzone": { "type": "number", "description": "Calibrated dodge deadzone (default 0.05)" },
+        "curveExponent": { "type": "number", "description": "Radial steering curve exponent (default 1.40)" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp of last update" }
+      },
+      "required": ["userId", "displayName"]
+    },
+    "UserPreset": {
+      "title": "UserPreset",
+      "description": "Saved speedflip, deadzone, and macro configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Preset ID" },
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "name": { "type": "string", "description": "Preset name (e.g. Zen 120Hz Speedflip)" },
+        "category": { "type": "string", "description": "Category (speedflip, fastAerial, deadzone, chainDash)" },
+        "internalDeadzone": { "type": "number", "description": "Internal deadzone threshold" },
+        "dodgeDeadzone": { "type": "number", "description": "Dodge deadzone threshold" },
+        "curveExponent": { "type": "number", "description": "Curve exponent" },
+        "flipCancelDelayMs": { "type": "number", "description": "Flip cancel delay in milliseconds" },
+        "isPublic": { "type": "boolean", "description": "Whether shared to community" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "userId", "name", "category"]
+    },
+    "CommunityPreset": {
+      "title": "CommunityPreset",
+      "description": "Shared community configurations with ratings and pro tags",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Community preset ID" },
+        "creatorId": { "type": "string", "description": "Creator user UID" },
+        "creatorName": { "type": "string", "description": "Creator gamer tag" },
+        "title": { "type": "string", "description": "Preset title" },
+        "description": { "type": "string", "description": "Mechanics summary" },
+        "rankTier": { "type": "string", "description": "RLCS Pro, SSL, GC3" },
+        "internalDeadzone": { "type": "number", "description": "Deadzone value" },
+        "dodgeDeadzone": { "type": "number", "description": "Dodge deadzone value" },
+        "curveExponent": { "type": "number", "description": "Sensitivity exponent" },
+        "downloadsCount": { "type": "number", "description": "Total downloads" },
+        "likesCount": { "type": "number", "description": "Total upvotes" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Publish timestamp" }
+      },
+      "required": ["id", "creatorId", "title", "rankTier"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile documents"
+    },
+    "/users/{userId}/presets/{presetId}": {
+      "schema": { "$ref": "#/entities/UserPreset" },
+      "description": "User private and custom saved presets"
+    },
+    "/communityPresets/{presetId}": {
+      "schema": { "$ref": "#/entities/CommunityPreset" },
+      "description": "Public community shared mechanics presets"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Rocket League Master-Engine & Macro Mechanics Studio",
+  "description": "Professional Rocket League input engine, Logitech G-Hub Lua & PowerShell macro generator, TAInput.ini visual editor, interactive mechanics timing simulator, and AI mechanics coach.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
