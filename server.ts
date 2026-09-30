@@ -563,6 +563,18 @@ app.get('/api/launch-script/download', (req, res) => {
   }
 });
 
+// Download g502x_mouse_master.lua
+app.get('/api/lua-g502x/download', (req, res) => {
+  const filePath = path.join(__dirname, 'g502x_mouse_master.lua');
+  if (fs.existsSync(filePath)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="g502x_mouse_master.lua"');
+    res.send(fs.readFileSync(filePath, 'utf-8'));
+  } else {
+    res.status(404).send('g502x_mouse_master.lua not found.');
+  }
+});
+
 // Download deploy-master-engine.ps1
 app.get('/api/deploy-engine/download', (req, res) => {
   const filePath = path.join(__dirname, 'deploy-master-engine.ps1');
