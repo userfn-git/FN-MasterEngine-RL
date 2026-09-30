@@ -1,9 +1,9 @@
 # ==============================================================================
-# FN ROCKET LEAGUE MASTER-ENGINE: PS2EXE PRODUCTION BUILD PIPELINE
+# FN ROCKET LEAGUE MASTER-ENGINE: PS2EXE STANDALONE EXECUTABLE BUILDER
 # Script: build-executable.ps1
-# Encoding: Strict ASCII Only (Cross-Shell Safe)
-# Target Executable: C:\FN-MasterEngine-RL\FN_RocketLeague_MasterEngine.exe
-# Target Epic Games: C:\Program Files\Epic Games
+# Target: C:\FN-MasterEngine-RL\FN_RocketLeague_MasterEngine.exe
+# Epic Games Target: C:\Program Files\Epic Games (64-bit standard, zero x86)
+# Encoding: Strict 100% ASCII Only (No unicode, no localized comments)
 # ==============================================================================
 
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
@@ -28,23 +28,23 @@ $configDir = Join-Path $projectRoot "config"
 }
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "   FN ROCKET LEAGUE MASTER-ENGINE: PS2EXE WRAPPER         " -ForegroundColor Green
-Write-Host "   Project Root: $projectRoot                             " -ForegroundColor Yellow
-Write-Host "   Epic Games Path: C:\Program Files\Epic Games           " -ForegroundColor Yellow
+Write-Host "   FN ROCKET LEAGUE MASTER-ENGINE: PS2EXE COMPILER        " -ForegroundColor Green
+Write-Host "   Directory: $projectRoot                                " -ForegroundColor Yellow
+Write-Host "   Epic Games: C:\Program Files\Epic Games                " -ForegroundColor Yellow
 Write-Host "==========================================================" -ForegroundColor Cyan
 
-# 1. Sync Base Resources & Offline Database Snapshot
+# 1. Sync Base Resources & Local Snapshot
 $baseUrl = "https://ais-dev-7xgtk3pserxiaohmdbn4eh-174192677837.europe-west1.run.app"
-Write-Host "[1/4] Synchronizing Python engine and database snapshot..." -ForegroundColor Yellow
+Write-Host "[1/4] Synchronizing resources and database snapshot..." -ForegroundColor Yellow
 
 try {
     Invoke-WebRequest -Uri "$baseUrl/api/backend-app/download" -OutFile (Join-Path $backendDir "app.py") -UseBasicParsing -TimeoutSec 15
     Invoke-WebRequest -Uri "$baseUrl/api/python-daemon/download" -OutFile (Join-Path $backendDir "engine_daemon.py") -UseBasicParsing -TimeoutSec 15
     $snapshot = Invoke-RestMethod -Uri "$baseUrl/api/github/sqlite-export" -UseBasicParsing -TimeoutSec 15
     $snapshot | ConvertTo-Json -Depth 10 | Out-File (Join-Path $dataDir "fn_master_engine_snapshot.json") -Encoding ascii -Force
-    Write-Host "[OK] Base resources synchronized." -ForegroundColor Green
+    Write-Host "[OK] Base resources and database snapshot synchronized." -ForegroundColor Green
 } catch {
-    Write-Host "[WARN] Remote snapshot sync skipped. Utilizing local offline database." -ForegroundColor DarkYellow
+    Write-Host "[WARN] Remote snapshot sync skipped. Using local offline cache." -ForegroundColor DarkYellow
 }
 
 # 2. Write the Clean Standalone WinForms Runner Script (ASCII only)
