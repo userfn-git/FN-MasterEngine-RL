@@ -4,12 +4,12 @@
 
 ![Rocket League](https://img.shields.io/badge/Esports-Rocket%20League%20RLCS-005fb8?style=for-the-badge&logo=rocketleague&logoColor=white)
 ![Author](https://img.shields.io/badge/Architect-userfn--git-00D2FF?style=for-the-badge&logo=github&logoColor=white)
-![Stack](https://img.shields.io/badge/C%23%20%7C%20Python%20%7C%20SQLite%20%7C%20React%20%7C%20TypeScript-007acc?style=for-the-badge)
+![Stack](https://img.shields.io/badge/C%23%20%7C%20PowerShell%20%7C%20Python%20%7C%20SQLite%20%7C%20React-007acc?style=for-the-badge)
 ![Physics](https://img.shields.io/badge/Physics%20Engine-120Hz%20Sub--Tick%20Precision-success?style=for-the-badge&logo=unrealengine)
 ![Kernel](https://img.shields.io/badge/Windows%20Kernel-WH__KEYBOARD__LL%20(0.00ms)-purple?style=for-the-badge&logo=windows)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-**Next-Generation Input Optimization Framework, Low-Level Win32 Execution Kernel, and Autonomous Esports Mechanics Engine for Competitive Rocket League Players.**
+**Next-Generation Input Optimization Framework, Low-Level Win32 Execution Kernel, Standalone Native Executable Wrapper, and Autonomous Esports Mechanics Engine for Competitive Rocket League Players.**
 
 [Official Repository](https://github.com/userfn-git/FN-MasterEngine-RL) • [RLCS Esports Reference](https://esports.rocketleague.com) • [Psyonix TAStatsAPI Spec](https://www.rocketleague.com)
 
@@ -19,103 +19,70 @@
 
 ## 📖 Executive Overview
 
-**FN Rocket League Master-Engine** is a specialized, zero-compromise mechanical engine engineered to eliminate synthetic input lag, stabilize hardware polling jitter, and unlock frame-perfect execution of high-tier competitive mechanics (Speedflips, Fast Aerials, Chaindashes, and Half-Flips) at the physical **120Hz Unreal Engine tick boundary (8.33ms)**.
+**FN Rocket League Master-Engine** is a specialized, zero-compromise mechanical execution engine engineered to eliminate synthetic input lag, stabilize hardware polling jitter, and unlock frame-perfect execution of high-tier competitive mechanics (Speedflips, Fast Aerials, Chaindashes, and Half-Flips) at the physical **120Hz Unreal Engine tick boundary (8.33ms)**.
 
-Developed by **`userfn-git`**, this system bridges kernel-level Windows user input (`user32.dll`), autonomous Python SQLite local daemons, Logitech G-HUB memory-injection Lua architecture, and a dynamic real-time telemetry dashboard.
-
----
-
-## 🌐 Authoritative Scientific & Industry References
-
-The architecture is grounded in verified operating system specifications, esports tournament frameworks, and authoritative computer science literature:
-
-1. **Psyonix & Epic Games Unreal Engine 3 Telemetry Engine**:
-   * [Psyonix Rocket League Esports](https://esports.rocketleague.com): Official RLCS Rulebook and LAN integrity standards for whitelisted local telemetry.
-   * `MatchStatsExporter_TA` Specification: Unreal Engine 3 `TAGame.MatchStatsExporter_TA` 120Hz broadcast socket interface.
-2. **Microsoft Windows Systems & Kernel API**:
-   * [Microsoft Learn: Win32 SetWindowsHookEx (`WH_KEYBOARD_LL`)](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowshookexw): Low-overhead hardware interrupt hook bypassing Windows message pump queuing.
-   * [Microsoft Learn: Win32 SendInput API](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendinput): Direct hardware-level scan-code injection avoiding synthetic virtualization overhead.
-3. **Computer Science & Polling Science (Wikipedia REST Grounding)**:
-   * [Wikipedia: Input Lag & Human Reaction Time](https://en.wikipedia.org/wiki/Input_lag): Academic analysis of end-to-end display latency, frame pacing, and human reaction curves.
-   * [Wikipedia: USB HID Class Specification](https://en.wikipedia.org/wiki/USB_human_interface_device_class): Microsecond interrupt transfer scheduling and 1000Hz polling rate optimization.
-4. **Logitech Gaming Systems Architecture**:
-   * [Logitech G-HUB Developer Suite](https://www.logitechg.com/en-us/innovation/g-hub.html): Lua 5.1 sandboxed hardware execution driver and G-Key memory triggers.
+Developed by **`userfn-git`**, this system bridges:
+* **Standalone Windows Executable (`FN_RocketLeague_MasterEngine.exe`)**: Single-file native wrapper compiled via PS2EXE or native Microsoft C# (.NET Framework) Win32 Interop.
+* **Kernel-Level Windows User Input (`user32.dll`)**: `WH_KEYBOARD_LL` low-level interrupt hooks operating at 0.00ms dispatch latency.
+* **Autonomous Python & SQLite Local Daemon**: Real-time 120Hz tick profiler and persistence engine for hardware telemetry.
+* **Official 64-bit Epic Games Launcher Integration**: Explicitly targeted to `C:\Program Files\Epic Games`.
 
 ---
 
-## 🚀 Core Engine Architecture
+## 🚀 Quick Start & Building the Standalone Executable (.EXE)
 
+### Prerequisites
+* Windows 10 or Windows 11 (64-bit).
+* Windows PowerShell (Run as Administrator).
+* Rocket League installed via Epic Games (Path: `C:\Program Files\Epic Games`).
+
+---
+
+### Step 1: Sync or Clone the Repository
+Open **PowerShell as Administrator** and navigate to `C:\FN-MasterEngine-RL`:
+
+```powershell
+Set-Location "C:\FN-MasterEngine-RL"
+git pull origin main
 ```
-                    ┌──────────────────────────────────────────────┐
-                    │    FN ROCKET LEAGUE MASTER-ENGINE v4.0.2     │
-                    │               userfn-git Core                │
-                    └──────────────────────┬───────────────────────┘
-                                           │
-         ┌─────────────────────────────────┼─────────────────────────────────┐
-         │                                 │                                 │
-         ▼                                 ▼                                 ▼
-┌──────────────────┐             ┌──────────────────┐              ┌──────────────────┐
-│  Win32 Low-Level │             │   Local SQLite   │              │ Logitech G-HUB   │
-│  Kernel Hooks    │             │   Python Daemon  │              │ Lua Engine       │
-│  WH_KEYBOARD_LL  │             │   data/fn_db     │              │ G-Key Micro-step │
-│  (0.00ms Jitter) │             │   (120Hz Tick)   │              │ (Anti-Backflip)  │
-└────────┬─────────┘             └────────┬─────────┘              └────────┬─────────┘
-         │                                │                                 │
-         └────────────────────────────────┼─────────────────────────────────┘
-                                          │
-                                          ▼
-                      ┌───────────────────────────────────────┐
-                      │   Rocket League (TAGame Config Path)  │
-                      │   * TAInput.ini (0.05 Deadzone)       │
-                      │   * TASystemSettings.ini (DirectSound)│
-                      │   * Unreal Engine 3 Physics Engine    │
-                      └───────────────────────────────────────┘
+
+*(If you are setting up the repository for the first time or fixing tracking information):*
+```powershell
+& ".\git-init-fix.ps1"
 ```
+
+---
+
+### Step 2: Build the Standalone Executable (PS2EXE)
+Execute the clean, strict ASCII build script:
+
+```powershell
+& ".\build-executable.ps1"
+```
+
+#### What `build-executable.ps1` does:
+1. **Verifies Environment**: Validates directories (`backend`, `data`, `config`) and sets `C:\Program Files\Epic Games` as the root launcher path.
+2. **Generates Win32 Application**: Prepares the standalone Windows Forms control center with 0.00ms interrupt triggers.
+3. **Compiles Single-File Executable**: Uses `ps2exe` with automatic fallback to Microsoft .NET C# compiler (`csc.exe`).
+4. **Outputs Executable**: Produces `C:\FN-MasterEngine-RL\FN_RocketLeague_MasterEngine.exe` and launches it immediately.
+
+---
+
+## ⚙️ Key Engine Features
 
 ### 1. Zero-Latency Win32 Interrupt Hook (`WH_KEYBOARD_LL`)
 * Operates at `0.00ms` dispatch latency directly against `user32.dll`.
 * Eliminates double-stroke recursion through hardware-flag inspection (`LLKHF_INJECTED = 0x10`).
-* Emergency hardware killswitch bound to **`[F10]`** and **`[Pause/Break]`** to instantly yield control to standard Windows inputs.
+* Emergency hardware killswitch bound to **`[F10]`** to instantly yield control to standard Windows inputs.
 
-### 2. Microsecond-Accurate Esports Mechanics Sequences
-* **Left Speedflip (`[W]` / `[A]` Trigger)**:
-  `Boost ON` ➔ `Pitch 45°` ➔ `Jump (30ms)` ➔ `Sub-tick Delay (30ms)` ➔ `Jump 2 (20ms)` ➔ `Cancel Pitch Down (-1.0) + Air Roll Left (650ms)` ➔ `Supersonic State Reached`.
-* **Fast Aerial (`[S]` Trigger)**:
-  `Pitch Backward (-0.95)` ➔ `Jump 1 (20ms)` ➔ `Release (25ms)` ➔ `Jump 2 (20ms)` ➔ `Continuous Boost` ➔ `Zero Backflip Accidental Lockout`.
-* **Wall Chaindash (`[Shift]` Pulsing)**:
-  `Micro-Jump (25ms)` ➔ `Two-Wheel Surface Contact` ➔ `Flip Transfer (15ms)` ➔ `Wall Momentum Accumulation`.
+### 2. High-Tier Mechanics Execution Matrix
+* **Left / Right Speedflip**: Perfect 45° flip cancel sequence timed to 30ms / 20ms physics ticks.
+* **Fast Aerial**: Instant double-jump with -0.95 pitch back and anti-accidental-backflip lock.
+* **Wall Chaindash**: 25ms micro-jump wheel contact momentum transfer.
 
-### 3. Local Embedded SQLite & Python Daemon
-* Local data store path: `data/fn_master_engine_snapshot.json` & `data/fn_master_engine.db`.
-* Autonomous persistent logging of controller drift, polling stability, frame times, and hardware metrics.
-* Fully operational offline without requiring cloud accounts or remote connectivity.
-
----
-
-## ⚡ Quick Start: Native Desktop Deployment
-
-### System Prerequisites
-* **Operating System**: Windows 10 / Windows 11 (64-bit).
-* **Git**: Installed and available in PATH.
-* **Privileges**: Administrator execution for Win32 Low-Level interrupt registration.
-
-### 1. Clone & Bootstrap Local Repository
-Open **PowerShell as Administrator** and execute:
-
-```powershell
-mkdir "C:\FN-MasterEngine-RL" -Force; Set-Location "C:\FN-MasterEngine-RL"
-git clone https://github.com/userfn-git/FN-MasterEngine-RL.git .
-```
-
-### 2. Launch Local Engine Studio
-```powershell
-.\launch.ps1
-```
-
-This single command:
-1. Detects OS specifications and verifies Python & Node.js environments.
-2. Initiates the local backend and database engine.
-3. Automatically opens the interactive interface at `http://localhost:5173`.
+### 3. Native TAInput.ini Configuration Injection
+* Directly writes competitive configs into `%USERPROFILE%\Documents\My Games\Rocket League\TAGame\Config\TAInput.ini`.
+* Injects **0.05 Deadzone**, **0.05 Dodge Deadzone**, and disables `OneFrameThreadLag`.
 
 ---
 
@@ -123,9 +90,11 @@ This single command:
 
 ```text
 C:\FN-MasterEngine-RL\
-├── launch.ps1                  # Primary automated bootstrapper & diagnostic launcher
-├── local_desktop_launcher.ps1  # Native Win32 ShowDialog Forms GUI control center
-├── package.json                # Engine dependency manifest (React 19, TypeScript, Vite)
+├── build-executable.ps1        # Pure ASCII PS2EXE standalone .exe compiler
+├── build.ps1                   # Native Microsoft C# (.NET Framework) build script
+├── git-init-fix.ps1            # Automated Git remote & upstream tracking setup tool
+├── Program.cs                  # Standalone C# Win32 application source
+├── FN_RocketLeague_MasterEngine.exe # Output compiled standalone executable
 ├── backend/
 │   ├── app.py                  # Primary Python REST & SQLite backend engine
 │   └── engine_daemon.py        # Microsecond hardware profiler & 120Hz tick daemon
@@ -134,21 +103,12 @@ C:\FN-MasterEngine-RL\
 │   └── fn_master_engine_snapshot.json # Full portable database export
 ├── config/
 │   └── active_macro_config.json# Active RLCS profile timings & deadzone matrix
-└── src/
-    ├── components/             # Dynamic interactive modules (Latency Lab, INI Studio, Form GUI)
-    ├── lib/                    # Hardware interop & state managers
-    └── types/                  # TypeScript interface contracts
+└── src/                        # Full-stack UI & Telemetry Studio source files
 ```
 
 ---
 
-## 🛡️ Fair Play & Competitive Integrity
-
-The **FN Rocket League Master-Engine** is designed for mechanical training, hardware diagnostics, and low-level latency optimization. It adheres to all local offline execution guidelines and respects client memory space isolation without modifying protected game binaries.
-
----
-
-## 👤 Author & Architecture Credits
+## 👤 Author & Repository Information
 
 * **Lead Architect & Maintainer**: [`userfn-git`](https://github.com/userfn-git)
 * **Official Repository**: [https://github.com/userfn-git/FN-MasterEngine-RL](https://github.com/userfn-git/FN-MasterEngine-RL)
