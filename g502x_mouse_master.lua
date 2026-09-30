@@ -1,19 +1,17 @@
 -- ==============================================================================
--- LOGITECH G502 X DEDICATED MASTER-ENGINE (100% MOUSE-BOUND SCRIPT)
+-- LOGITECH G502 X DEDICATED MASTER-ENGINE (HOLD-TO-RUN & FIXED MAPPING)
 -- Architecture: Logitech G-HUB Lua 5.1 Sandbox
 -- Device: Logitech G502 X / G502 X PLUS / G502 HERO
 -- Author: userfn-git (FN Rocket League Master-Engine)
--- Version: 4.0.2 PRO (Mouse Dedicated Edition)
+-- Version: 4.0.3 PRO (Hold-To-Run Interruptible Edition)
 -- ==============================================================================
--- Physical G502 X Button Mapping:
---   MB1 (Left Click)    : In-game Primary Jump (Managed safely)
---   MB2 (Right Click)   : In-game Boost
---   MB3 (Middle Click)  : Toggle Script Engine ON / OFF
---   MB4 (Back / Side 1) : 45-Degree Left Speedflip + Powerslide Recovery
---   MB5 (Fwd / Side 2)  : Ground & Wall Chaindash (Instant sub-tick cycle)
---   MB6 (DPI Shift/Sniper): RLCS Fast Aerial (Instant double-jump cancel)
---   MB7 (G7 - Index Top): Right Speedflip + Air Roll Right (Instant)
---   MB8 (G8 - Index Low): Forward Straight Kickoff Speedflip
+-- Button Mapping (Fixed swap between G6 Sniper and MB5):
+--   MB3 (Middle Click)   : Toggle Script Engine ON / OFF
+--   MB4 (G4 - Side Back) : Left Speedflip (HOLD-TO-RUN: Stops instantly on release!)
+--   MB5 (G5 - Side Fwd)  : Chaindash (Assigned to physical MB5)
+--   MB6 (G6 - DPI Sniper): RLCS Fast Aerial (Assigned to physical DPI Sniper button 6)
+--   MB7 (G7 - Index Top) : Right Speedflip + Air Roll Right
+--   MB8 (G8 - Index Low) : Forward Straight Kickoff Speedflip
 -- ==============================================================================
 
 local CONFIG = {
@@ -24,19 +22,27 @@ local CONFIG = {
 }
 
 local enable_script = true
-local macro_busy = false
 
--- G502 X Physical Event ID Table
+-- Swapped & Verified G502 X Button Table
 local G502X = {
     TOGGLE_ENGINE    = 3,  -- Middle Mouse Wheel Click
     SPEEDFLIP_LEFT   = 4,  -- Back Side Button (G4)
-    CHAINDASH        = 5,  -- Forward Side Button (G5)
-    DPI_SNIPER       = 6,  -- DPI Shift Thumb Button (Fast Aerial)
+    CHAINDASH        = 6,  -- Swapped: G6 is now MB5 Chaindash
+    DPI_SNIPER       = 5,  -- Swapped: G5 is now MB6 DPI Sniper / Fast Aerial
     SPEEDFLIP_RIGHT  = 7,  -- Top Left Index Button (G7)
     SPEEDFLIP_FWD    = 8,  -- Lower Left Index Button (G8)
 }
 
--- Target Game Keys (Dispatched into Rocket League Win32 Input Loop)
+-- Real-time Hold-State Tracking (True when physically pressed, False when released)
+local BUTTON_HELD = {
+    [G502X.SPEEDFLIP_LEFT]  = false,
+    [G502X.CHAINDASH]       = false,
+    [G502X.DPI_SNIPER]      = false,
+    [G502X.SPEEDFLIP_RIGHT] = false,
+    [G502X.SPEEDFLIP_FWD]   = false,
+}
+
+-- Target Game Keys
 local KEYS = {
     FORWARD    = "w",
     BACK       = "s",
@@ -49,7 +55,6 @@ local KEYS = {
     AIRROLL_R  = "e",
 }
 
--- Native API Bindings & Safe Polymorphic Dispatcher
 local _NativePressKey = PressKey
 local _NativeReleaseKey = ReleaseKey
 local _NativePressMouse = PressMouseButton
@@ -106,179 +111,191 @@ function EmergencyReleaseAll()
     pcall(_NativeReleaseKey, KEYS.AIRROLL_R)
 end
 
-function RunMacro(action)
-    if macro_busy then return end
-    macro_busy = true
-    local ok, err = pcall(action)
-    if not ok then
-        OutputLogMessage("[ERROR] Macro Exception: " .. tostring(err) .. "\n")
-        EmergencyReleaseAll()
+-- Micro-interruptible Sleep: Immediately aborts if the physical button is released!
+function InterruptibleSleep(ms, triggerBtn)
+    local step = 10
+    local elapsed = 0
+    while elapsed < ms do
+        if not BUTTON_HELD[triggerBtn] or not enable_script then
+            return false
+        end
+        Sleep(step)
+        elapsed = elapsed + step
     end
-    macro_busy = false
+    return true
 end
 
 -- =====================================================================
--- DEDICATED G502 X MACRO ROUTINES
+-- HOLD-TO-RUN MACROS (STOPS IMMEDIATELY THE INSTANT YOU RELEASE THE BUTTON)
 -- =====================================================================
 
--- 1. DPI Sniper Thumb (MB6): Fast Aerial (Sub-tick anti-backflip)
-function G502X_FastAerial()
-    OutputLogMessage("[G502X] Fast Aerial (DPI Sniper) Engaged\n")
-    SafePress(KEYS.BOOST)
-    SafePress(KEYS.BACK)
-    SafePress(KEYS.JUMP)
-    Sleep(190)
-    SafeRelease(KEYS.JUMP)
-    SafeRelease(KEYS.BACK)
-    Sleep(30)
-
-    SafePress(KEYS.JUMP)
-    Sleep(35)
-    SafeRelease(KEYS.JUMP)
-
-    Sleep(140)
-    SafePress(KEYS.BACK)
-    Sleep(280)
-    SafeRelease(KEYS.BACK)
-    SafeRelease(KEYS.BOOST)
-    OutputLogMessage("[G502X] Fast Aerial Complete\n")
-end
-
--- 2. Side Button 1 (MB4): Left Speedflip with Powerslide Recovery
+-- 1. MB4 (Left Speedflip): Runs ONLY while holding MB4!
 function G502X_SpeedflipLeft()
-    OutputLogMessage("[G502X] Left Speedflip (MB4) Engaged\n")
+    OutputLogMessage("[G502X] Left Speedflip (MB4) Started\n")
     SafePress(KEYS.BOOST)
     SafePress(KEYS.FORWARD)
     SafePress(KEYS.LEFT)
     SafePress(KEYS.JUMP)
-    Sleep(35)
+    if not InterruptibleSleep(35, G502X.SPEEDFLIP_LEFT) then EmergencyReleaseAll(); return end
+
     SafeRelease(KEYS.JUMP)
-    Sleep(40)
+    if not InterruptibleSleep(40, G502X.SPEEDFLIP_LEFT) then EmergencyReleaseAll(); return end
 
     SafePress(KEYS.JUMP)
-    Sleep(25)
+    if not InterruptibleSleep(25, G502X.SPEEDFLIP_LEFT) then EmergencyReleaseAll(); return end
+
     SafeRelease(KEYS.JUMP)
-    Sleep(15)
+    if not InterruptibleSleep(15, G502X.SPEEDFLIP_LEFT) then EmergencyReleaseAll(); return end
     SafeRelease(KEYS.FORWARD)
 
     SafePress(KEYS.BACK)
     SafePress(KEYS.POWERSLIDE)
     SafePress(KEYS.AIRROLL_L)
-    Sleep(CONFIG.RECOVERY_SLIDE)
-    SafeRelease(KEYS.BACK)
-    SafeRelease(KEYS.LEFT)
-    SafeRelease(KEYS.AIRROLL_L)
-    SafeRelease(KEYS.POWERSLIDE)
-    SafeRelease(KEYS.BOOST)
+    if not InterruptibleSleep(CONFIG.RECOVERY_SLIDE, G502X.SPEEDFLIP_LEFT) then EmergencyReleaseAll(); return end
+
+    EmergencyReleaseAll()
     OutputLogMessage("[G502X] Left Speedflip Complete\n")
 end
 
--- 3. Side Button 2 (MB5): Ground & Wall Chaindash
-function G502X_Chaindash()
-    OutputLogMessage("[G502X] Chaindash (MB5) Engaged\n")
+-- 2. Fast Aerial (DPI Sniper): Runs ONLY while holding Sniper button!
+function G502X_FastAerial()
+    OutputLogMessage("[G502X] Fast Aerial Started\n")
+    SafePress(KEYS.BOOST)
+    SafePress(KEYS.BACK)
     SafePress(KEYS.JUMP)
-    Sleep(25)
+    if not InterruptibleSleep(190, G502X.DPI_SNIPER) then EmergencyReleaseAll(); return end
+
     SafeRelease(KEYS.JUMP)
-    Sleep(55)
+    SafeRelease(KEYS.BACK)
+    if not InterruptibleSleep(30, G502X.DPI_SNIPER) then EmergencyReleaseAll(); return end
+
+    SafePress(KEYS.JUMP)
+    if not InterruptibleSleep(35, G502X.DPI_SNIPER) then EmergencyReleaseAll(); return end
+    SafeRelease(KEYS.JUMP)
+
+    if not InterruptibleSleep(140, G502X.DPI_SNIPER) then EmergencyReleaseAll(); return end
+
+    SafePress(KEYS.BACK)
+    if not InterruptibleSleep(280, G502X.DPI_SNIPER) then EmergencyReleaseAll(); return end
+
+    EmergencyReleaseAll()
+    OutputLogMessage("[G502X] Fast Aerial Complete\n")
+end
+
+-- 3. Chaindash (MB5): Runs ONLY while holding MB5!
+function G502X_Chaindash()
+    OutputLogMessage("[G502X] Chaindash Started\n")
+    SafePress(KEYS.JUMP)
+    if not InterruptibleSleep(25, G502X.CHAINDASH) then EmergencyReleaseAll(); return end
+    SafeRelease(KEYS.JUMP)
+    if not InterruptibleSleep(55, G502X.CHAINDASH) then EmergencyReleaseAll(); return end
 
     SafePress(KEYS.FORWARD)
     SafePress(KEYS.POWERSLIDE)
     SafePress(KEYS.JUMP)
-    Sleep(30)
+    if not InterruptibleSleep(30, G502X.CHAINDASH) then EmergencyReleaseAll(); return end
     SafeRelease(KEYS.JUMP)
-    Sleep(45)
-    SafeRelease(KEYS.POWERSLIDE)
-    SafeRelease(KEYS.FORWARD)
+    if not InterruptibleSleep(45, G502X.CHAINDASH) then EmergencyReleaseAll(); return end
+
+    EmergencyReleaseAll()
     OutputLogMessage("[G502X] Chaindash Complete\n")
 end
 
--- 4. G7 Button (MB7): Right Speedflip + Air Roll Right
+-- 4. Right Speedflip (G7): Runs ONLY while holding G7!
 function G502X_SpeedflipRight()
-    OutputLogMessage("[G502X] Right Speedflip (G7) Engaged\n")
+    OutputLogMessage("[G502X] Right Speedflip Started\n")
     SafePress(KEYS.BOOST)
     SafePress(KEYS.FORWARD)
     SafePress(KEYS.RIGHT)
     SafePress(KEYS.JUMP)
-    Sleep(35)
+    if not InterruptibleSleep(35, G502X.SPEEDFLIP_RIGHT) then EmergencyReleaseAll(); return end
+
     SafeRelease(KEYS.JUMP)
-    Sleep(40)
+    if not InterruptibleSleep(40, G502X.SPEEDFLIP_RIGHT) then EmergencyReleaseAll(); return end
 
     SafePress(KEYS.JUMP)
-    Sleep(25)
+    if not InterruptibleSleep(25, G502X.SPEEDFLIP_RIGHT) then EmergencyReleaseAll(); return end
+
     SafeRelease(KEYS.JUMP)
-    Sleep(15)
+    if not InterruptibleSleep(15, G502X.SPEEDFLIP_RIGHT) then EmergencyReleaseAll(); return end
     SafeRelease(KEYS.FORWARD)
 
     SafePress(KEYS.BACK)
     SafePress(KEYS.POWERSLIDE)
     SafePress(KEYS.AIRROLL_R)
-    Sleep(CONFIG.RECOVERY_SLIDE)
-    SafeRelease(KEYS.BACK)
-    SafeRelease(KEYS.RIGHT)
-    SafeRelease(KEYS.AIRROLL_R)
-    SafeRelease(KEYS.POWERSLIDE)
-    SafeRelease(KEYS.BOOST)
+    if not InterruptibleSleep(CONFIG.RECOVERY_SLIDE, G502X.SPEEDFLIP_RIGHT) then EmergencyReleaseAll(); return end
+
+    EmergencyReleaseAll()
     OutputLogMessage("[G502X] Right Speedflip Complete\n")
 end
 
--- 5. G8 Button (MB8): Straight Forward Kickoff Flip
+-- 5. Forward Speedflip (G8): Runs ONLY while holding G8!
 function G502X_SpeedflipForward()
-    OutputLogMessage("[G502X] Forward Speedflip (G8) Engaged\n")
+    OutputLogMessage("[G502X] Forward Speedflip Started\n")
     SafePress(KEYS.BOOST)
     SafePress(KEYS.FORWARD)
     SafePress(KEYS.JUMP)
-    Sleep(30)
+    if not InterruptibleSleep(30, G502X.SPEEDFLIP_FWD) then EmergencyReleaseAll(); return end
+
     SafeRelease(KEYS.JUMP)
-    Sleep(35)
+    if not InterruptibleSleep(35, G502X.SPEEDFLIP_FWD) then EmergencyReleaseAll(); return end
 
     SafePress(KEYS.JUMP)
-    Sleep(25)
+    if not InterruptibleSleep(25, G502X.SPEEDFLIP_FWD) then EmergencyReleaseAll(); return end
     SafeRelease(KEYS.JUMP)
     SafeRelease(KEYS.FORWARD)
 
     SafePress(KEYS.BACK)
-    Sleep(550)
-    SafeRelease(KEYS.BACK)
-    SafeRelease(KEYS.BOOST)
+    if not InterruptibleSleep(550, G502X.SPEEDFLIP_FWD) then EmergencyReleaseAll(); return end
+
+    EmergencyReleaseAll()
     OutputLogMessage("[G502X] Forward Speedflip Complete\n")
 end
 
 -- =====================================================================
--- PURE MOUSE EVENT LISTENER (NO KEYBOARD G-KEYS REQUIRED)
+-- REAL-TIME HOLD / RELEASE EVENT DISPATCHER
 -- =====================================================================
 function OnEvent(event, arg)
     if event == "PROFILE_ACTIVATED" then
         EnablePrimaryMouseButtonEvents(true)
         ClearLog()
         OutputLogMessage("==============================================\n")
-        OutputLogMessage(" LOGITECH G502 X ROCKET LEAGUE MASTER-ENGINE  \n")
-        OutputLogMessage(" STATUS: ONLINE (100% PURE MOUSE-BOUND MODE)  \n")
-        OutputLogMessage(" Author: userfn-git | RLCS 0.05 Deadzone Ready\n")
+        OutputLogMessage(" LOGITECH G502 X MASTER-ENGINE (HOLD-TO-RUN)  \n")
+        OutputLogMessage(" STATUS: ONLINE (STOPS INSTANTLY ON RELEASE)  \n")
         OutputLogMessage("==============================================\n")
         return
     end
 
-    -- Toggle Script Engine with Middle Click
     if event == "MOUSE_BUTTON_PRESSED" and arg == G502X.TOGGLE_ENGINE then
         enable_script = not enable_script
-        OutputLogMessage("[G502X] Script engine is now " .. (enable_script and "ENABLED" or "DISABLED") .. "\n")
+        OutputLogMessage("[G502X] Script engine: " .. (enable_script and "ENABLED" or "DISABLED") .. "\n")
+        if not enable_script then EmergencyReleaseAll() end
         return
     end
 
     if not enable_script then return end
 
-    -- Handle all G502 X physical mouse button clicks
+    -- Button Released: Immediately release all keys and abort macro!
+    if event == "MOUSE_BUTTON_RELEASED" then
+        BUTTON_HELD[arg] = false
+        EmergencyReleaseAll()
+        return
+    end
+
+    -- Button Pressed: Register hold state and run macro
     if event == "MOUSE_BUTTON_PRESSED" then
+        BUTTON_HELD[arg] = true
+
         if arg == G502X.SPEEDFLIP_LEFT then
-            RunMacro(G502X_SpeedflipLeft)
+            G502X_SpeedflipLeft()
         elseif arg == G502X.CHAINDASH then
-            RunMacro(G502X_Chaindash)
+            G502X_Chaindash()
         elseif arg == G502X.DPI_SNIPER then
-            RunMacro(G502X_FastAerial)
+            G502X_FastAerial()
         elseif arg == G502X.SPEEDFLIP_RIGHT then
-            RunMacro(G502X_SpeedflipRight)
+            G502X_SpeedflipRight()
         elseif arg == G502X.SPEEDFLIP_FWD then
-            RunMacro(G502X_SpeedflipForward)
+            G502X_SpeedflipForward()
         end
     end
 end
