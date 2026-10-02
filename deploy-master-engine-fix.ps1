@@ -30,37 +30,76 @@ $legacyExe = Join-Path $projectRoot "FN_RocketLeague_MasterEngine.exe"
 $launcherScript = Join-Path $projectRoot "MasterEngineLauncher.ps1"
 
 # ------------------------------------------------------------------------------
-# STEP 1: TERMINATE RUNNING PROCESSES LOCKING MASTERENGINE.EXE
+# DEDICATED FUNCTION: UNLOCK AND TERMINATE LOCKING PROCESSES
 # ------------------------------------------------------------------------------
-Write-Host "[1/6] Checking for active processes locking MasterEngine.exe..." -ForegroundColor Yellow
+function Stop-MasterEngineProcess {
+    [CmdletBinding()]
+    param(
+        [string]$TargetExecutablePath = "C:\FN-MasterEngine-RL\MasterEngine.exe"
+    )
 
-$processNames = @("MasterEngine", "FN_RocketLeague_MasterEngine")
-$lockedProcesses = Get-Process -Name $processNames -ErrorAction SilentlyContinue
+    Write-Host "[1/6] Invoking Stop-MasterEngineProcess to release file locks..." -ForegroundColor Yellow
 
-if ($lockedProcesses) {
-    Write-Host "      Detected active process(es) holding file lock:" -ForegroundColor Yellow
-    foreach ($proc in $lockedProcesses) {
-        Write-Host "      - Process ID: $($proc.Id) | Name: $($proc.ProcessName)" -ForegroundColor DarkYellow
+    $knownProcessNames = @("MasterEngine", "FN_RocketLeague_MasterEngine")
+    $foundLockingProcesses = @()
+
+    # Query processes by known executable names
+    $byName = Get-Process -Name $knownProcessNames -ErrorAction SilentlyContinue
+    if ($byName) {
+        $foundLockingProcesses += $byName
     }
 
-    Write-Host "      Terminating locking process(es) to release Windows file handle..." -ForegroundColor Yellow
-    $lockedProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
-
-    # Wait up to 3 seconds for the file handle to be released by the OS
-    $maxWaitMs = 3000
-    $waitedMs = 0
-    while ($waitedMs -lt $maxWaitMs) {
-        Start-Sleep -Milliseconds 250
-        $waitedMs += 250
-        $stillRunning = Get-Process -Name $processNames -ErrorAction SilentlyContinue
-        if (-not $stillRunning) {
-            break
+    # Query all running processes to check if any process path matches the target executable
+    try {
+        $allProcs = Get-Process -ErrorAction SilentlyContinue
+        foreach ($proc in $allProcs) {
+            try {
+                if ($proc.Path -and ($proc.Path -eq $TargetExecutablePath)) {
+                    if ($foundLockingProcesses.Id -notcontains $proc.Id) {
+                        $foundLockingProcesses += $proc
+                    }
+                }
+            } catch {
+                # Ignore system processes where path access is restricted
+            }
         }
+    } catch {
+        # Proceed with name-matched processes if system query fails
     }
-    Write-Host "[OK] Active engine process terminated. File lock released." -ForegroundColor Green
-} else {
-    Write-Host "[OK] No active MasterEngine processes found. File lock is clear." -ForegroundColor Green
+
+    if ($foundLockingProcesses.Count -gt 0) {
+        Write-Host "      Detected active process(es) holding file lock on $TargetExecutablePath :" -ForegroundColor DarkYellow
+        foreach ($proc in $foundLockingProcesses) {
+            Write-Host "      - Process ID: $($proc.Id) | Name: $($proc.ProcessName)" -ForegroundColor DarkYellow
+            try {
+                Write-Host "        Forcibly terminating PID $($proc.Id)..." -ForegroundColor Yellow
+                Stop-Process -Id $proc.Id -Force -ErrorAction Stop
+                Write-Host "        PID $($proc.Id) terminated successfully." -ForegroundColor Green
+            } catch {
+                Write-Host "        [WARN] Could not terminate PID $($proc.Id): $_" -ForegroundColor DarkYellow
+            }
+        }
+
+        # Polling loop: Wait up to 3000ms for OS file handles to be completely released
+        Write-Host "      Waiting for Windows operating system to release file lock..." -ForegroundColor Yellow
+        $maxWaitMs = 3000
+        $waitedMs = 0
+        while ($waitedMs -lt $maxWaitMs) {
+            Start-Sleep -Milliseconds 250
+            $waitedMs += 250
+            $remaining = Get-Process -Name $knownProcessNames -ErrorAction SilentlyContinue
+            if (-not $remaining) {
+                break
+            }
+        }
+        Write-Host "[OK] All locking processes terminated. File lock released." -ForegroundColor Green
+    } else {
+        Write-Host "[OK] No locking processes detected. File lock is clear." -ForegroundColor Green
+    }
 }
+
+# Execute process termination function before starting file operations
+Stop-MasterEngineProcess -TargetExecutablePath $targetExe
 
 # ------------------------------------------------------------------------------
 # STEP 2: REMOVE LEGACY BUILD ARTIFACTS
