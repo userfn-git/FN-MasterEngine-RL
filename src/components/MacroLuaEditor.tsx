@@ -28,12 +28,14 @@ import {
   ChevronRight,
   Clock,
   BookmarkCheck,
-  Undo2
+  Undo2,
+  BookOpen
 } from 'lucide-react';
 import { MacroConfig } from '../types';
 import { generateLuaScript } from '../data/defaultConfig';
 import { MacroValidator } from '../utils/MacroValidator';
 import { MacroValidatorPanel } from './MacroValidatorPanel';
+import { MacroLibrary } from './MacroLibrary';
 
 export interface MacroHistoryEntry {
   id: string;
@@ -54,7 +56,7 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
   const [copiedPath, setCopiedPath] = useState<boolean>(false);
   const [linkedGHub, setLinkedGHub] = useState<boolean>(false);
   const [showGuide, setShowGuide] = useState<boolean>(false);
-  const [activeSubTab, setActiveSubTab] = useState<'editor' | 'bindings' | 'math'>('bindings');
+  const [activeSubTab, setActiveSubTab] = useState<'editor' | 'bindings' | 'math' | 'library'>('bindings');
   const [exportWarningModal, setExportWarningModal] = useState<boolean>(false);
   const [pendingAction, setPendingAction] = useState<'copy' | 'download' | 'link' | null>(null);
 
@@ -532,6 +534,15 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
             >
               Delays & Timers
             </button>
+            <button
+              onClick={() => setActiveSubTab('library')}
+              className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1 ${
+                activeSubTab === 'library' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Presets Library</span>
+            </button>
           </div>
 
           {/* Bindings Tab */}
@@ -846,6 +857,16 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
                   />
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Presets Library Tab */}
+          {activeSubTab === 'library' && (
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4">
+              <MacroLibrary
+                currentConfig={config}
+                onApplyPreset={(newConfig) => updateConfigWithPulse(newConfig)}
+              />
             </div>
           )}
           </div>
