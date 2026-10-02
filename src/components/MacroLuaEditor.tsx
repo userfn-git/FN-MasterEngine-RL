@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { Copy, Download, Check, FileCode, Sliders, Shield, Terminal, HelpCircle, Eye, EyeOff, Sparkles, Zap } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Copy, Download, Check, FileCode, Sliders, Shield, Terminal, HelpCircle, Eye, EyeOff, Sparkles, Zap, AlertOctagon, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { MacroConfig } from '../types';
 import { generateLuaScript } from '../data/defaultConfig';
+import { MacroValidator } from '../utils/MacroValidator';
+import { MacroValidatorPanel } from './MacroValidatorPanel';
 
 interface MacroLuaEditorProps {
   config: MacroConfig;
@@ -14,22 +16,22 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
   const [linkedGHub, setLinkedGHub] = useState<boolean>(false);
   const [showGuide, setShowGuide] = useState<boolean>(false);
   const [activeSubTab, setActiveSubTab] = useState<'editor' | 'bindings' | 'math'>('editor');
+  const [exportWarningModal, setExportWarningModal] = useState<boolean>(false);
+  const [pendingAction, setPendingAction] = useState<'copy' | 'download' | 'link' | null>(null);
 
   const generatedScript = generateLuaScript(config);
 
-  const handleCopy = () => {
+  const validationReport = useMemo(() => {
+    return MacroValidator.validate(generatedScript, config);
+  }, [generatedScript, config]);
+
+  const executeCopy = () => {
     navigator.clipboard.writeText(generatedScript);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleCopyGHubPath = () => {
-    navigator.clipboard.writeText('%LOCALAPPDATA%\\LGHUB\\scripts\\RocketLeague_MasterEngine.lua');
-    setCopiedPath(true);
-    setTimeout(() => setCopiedPath(false), 2000);
-  };
-
-  const handleDownload = () => {
+  const executeDownload = () => {
     const blob = new Blob([generatedScript], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -39,6 +41,53 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const executeLinkGHub = () => {
+    navigator.clipboard.writeText(generatedScript);
+    setLinkedGHub(true);
+    setTimeout(() => setLinkedGHub(false), 4000);
+  };
+
+  const handleCopy = () => {
+    if (validationReport.errorCount > 0) {
+      setPendingAction('copy');
+      setExportWarningModal(true);
+      return;
+    }
+    executeCopy();
+  };
+
+  const handleDownload = () => {
+    if (validationReport.errorCount > 0) {
+      setPendingAction('download');
+      setExportWarningModal(true);
+      return;
+    }
+    executeDownload();
+  };
+
+  const handleLinkGHub = () => {
+    if (validationReport.errorCount > 0) {
+      setPendingAction('link');
+      setExportWarningModal(true);
+      return;
+    }
+    executeLinkGHub();
+  };
+
+  const confirmExportAnyway = () => {
+    setExportWarningModal(false);
+    if (pendingAction === 'copy') executeCopy();
+    else if (pendingAction === 'download') executeDownload();
+    else if (pendingAction === 'link') executeLinkGHub();
+    setPendingAction(null);
+  };
+
+  const handleCopyGHubPath = () => {
+    navigator.clipboard.writeText('%LOCALAPPDATA%\\LGHUB\\scripts\\RocketLeague_MasterEngine.lua');
+    setCopiedPath(true);
+    setTimeout(() => setCopiedPath(false), 2000);
   };
 
   return (
@@ -65,11 +114,7 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
 
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => {
-              navigator.clipboard.writeText(generatedScript);
-              setLinkedGHub(true);
-              setTimeout(() => setLinkedGHub(false), 4000);
-            }}
+            onClick={handleLinkGHub}
             title="Auto-copy script and initiate Logitech G-HUB link"
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-mono font-bold transition-all shadow-md shadow-purple-500/20"
           >
@@ -144,6 +189,9 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
           </ol>
         </div>
       )}
+
+      {/* Real-Time MacroValidator In-Editor Warning System */}
+      <MacroValidatorPanel report={validationReport} />
 
       {/* Main Grid: Config Knobs + Live Lua Code Inspector */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -505,6 +553,15 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
               <span className="text-xs font-mono text-slate-300 ml-2">
                 RocketLeague_MasterEngine.lua
               </span>
+              {validationReport.isValid ? (
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-1.5 py-0.2 rounded flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Syntax Verified
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono text-rose-400 bg-rose-950/80 border border-rose-500/40 px-1.5 py-0.2 rounded flex items-center gap-1">
+                  <AlertOctagon className="w-3 h-3" /> {validationReport.errorCount} Issue{validationReport.errorCount > 1 ? 's' : ''}
+                </span>
+              )}
             </div>
             <span className="text-[11px] font-mono text-cyan-400">
               {generatedScript.split('\n').length} lines
@@ -518,6 +575,57 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
           </div>
         </div>
       </div>
+
+      {/* Pre-Export Warning Modal when Conflicts or Syntax Errors Exist */}
+      {exportWarningModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-500/60 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-scaleIn">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-['Chakra_Petch'] font-bold text-base text-white uppercase">
+                  Macro Validation Warning
+                </h3>
+                <p className="text-xs text-slate-400 font-['Rajdhani']">
+                  MacroValidator flagged {validationReport.errorCount} critical issue{validationReport.errorCount > 1 ? 's' : ''} in the Lua script.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2 max-h-48 overflow-y-auto text-xs font-mono">
+              {validationReport.issues
+                .filter((i) => i.severity === 'error')
+                .map((issue) => (
+                  <div key={issue.id} className="text-rose-300 bg-rose-950/40 p-2 rounded border border-rose-500/30">
+                    <strong className="text-rose-400 block">{issue.title}:</strong>
+                    <span>{issue.message}</span>
+                  </div>
+                ))}
+            </div>
+
+            <p className="text-xs text-slate-400 font-['Rajdhani']">
+              Exporting a script with syntax or button collisions can cause Logitech G-Hub script engine halts or unexpected input loops.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                onClick={() => setExportWarningModal(false)}
+                className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-bold transition-colors"
+              >
+                Review & Fix Issues
+              </button>
+              <button
+                onClick={confirmExportAnyway}
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-mono font-bold transition-all shadow-md shadow-rose-600/30"
+              >
+                Export Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
