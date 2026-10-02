@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { MacroConfig } from '../types';
 import { PhysicsProfiler } from './PhysicsProfiler';
+import { HardwareLatencyCalibrator } from './HardwareLatencyCalibrator';
 
 interface LatencyLabProps {
   config: MacroConfig;
@@ -42,8 +43,8 @@ interface BenchmarkRecord {
 }
 
 export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }) => {
-  // Main Sub-Tab switcher: 'hardware' | 'curve' | 'profiler'
-  const [activeTab, setActiveTab] = useState<'hardware' | 'curve' | 'profiler'>('hardware');
+  // Main Sub-Tab switcher: 'hardware' | 'calibrator' | 'curve' | 'profiler'
+  const [activeTab, setActiveTab] = useState<'hardware' | 'calibrator' | 'curve' | 'profiler'>('hardware');
 
   // Key press tester state (Curve view)
   const [testLog, setTestLog] = useState<Array<{ key: string; durationMs: number; intervalMs?: number; timestamp: string }>>([]);
@@ -409,6 +410,18 @@ export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }
           >
             <Cpu className="w-3.5 h-3.5" />
             <span>Hardware Monitor</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('calibrator')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+              activeTab === 'calibrator'
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Gauge className="w-3.5 h-3.5 text-amber-400" />
+            <span>Hardware Latency Calibrator</span>
           </button>
 
           <button
@@ -932,6 +945,11 @@ export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }
             </div>
           </div>
         </div>
+      )}
+
+      {/* VIEW: HARDWARE LATENCY CALIBRATOR */}
+      {activeTab === 'calibrator' && (
+        <HardwareLatencyCalibrator config={config} onUpdateConfig={onUpdateConfig} />
       )}
 
       {/* VIEW 3: REAL-TIME PHYSICS PROFILER (RECHARTS) */}
