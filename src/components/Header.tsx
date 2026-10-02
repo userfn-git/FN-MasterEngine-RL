@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Flame, Zap, Shield, FileCode, Sliders, Terminal, Cpu, Sparkles, Volume2, VolumeX, Download, Cloud, Radio, Globe, ExternalLink, X, Layers, Compass, Settings, Info, BookOpen, Check } from 'lucide-react';
+import { Flame, Zap, Shield, FileCode, Sliders, Terminal, Cpu, Sparkles, Volume2, VolumeX, Download, Cloud, Radio, Globe, ExternalLink, X, Layers, Compass, Settings, Info, BookOpen, Check, Archive, FolderArchive } from 'lucide-react';
 import { BackgroundUpdateChecker } from './BackgroundUpdateChecker';
 
 interface HeaderProps {
@@ -13,6 +13,7 @@ interface HeaderProps {
   setAudioDrillActive: (active: boolean) => void;
   onExportAll: () => void;
   onSyncGHub?: () => void;
+  onBatchExportZip?: () => Promise<void> | void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,9 +27,26 @@ export const Header: React.FC<HeaderProps> = ({
   setAudioDrillActive,
   onExportAll,
   onSyncGHub,
+  onBatchExportZip,
 }) => {
   const [portalsModalOpen, setPortalsModalOpen] = useState<boolean>(false);
   const [syncedGHub, setSyncedGHub] = useState<boolean>(false);
+  const [isExportingZip, setIsExportingZip] = useState<boolean>(false);
+  const [exportedZip, setExportedZip] = useState<boolean>(false);
+
+  const handleZipClick = async () => {
+    if (!onBatchExportZip) return;
+    try {
+      setIsExportingZip(true);
+      await onBatchExportZip();
+      setExportedZip(true);
+      setTimeout(() => setExportedZip(false), 2500);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsExportingZip(false);
+    }
+  };
 
   const officialLinks = [
     {
@@ -249,6 +267,106 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="mt-2.5 pt-2 border-t border-slate-800/80 text-[10px] text-purple-300/80 flex items-center justify-between">
                 <span>Format: .json profile</span>
                 <span>Logitech G-Hub v2026.x</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Batch Export ZIP Button with Detailed Offline Backup Tooltip */}
+          <div className="relative group flex items-center">
+            <button
+              onClick={handleZipClick}
+              disabled={isExportingZip}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all shadow-sm active:scale-95 border ${
+                exportedZip
+                  ? 'bg-emerald-600 border-emerald-400 text-white shadow-emerald-500/30'
+                  : isExportingZip
+                  ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-wait'
+                  : 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border-amber-500/50 text-amber-200 hover:text-amber-100 shadow-amber-500/10'
+              }`}
+              title="Batch Export: Generates a complete .zip archive of all Lua scripts, G-Hub profiles, INI files, and PowerShell hooks for offline backup"
+              aria-label="Batch Export Offline Backup Archive (.zip)"
+            >
+              {exportedZip ? (
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+              ) : isExportingZip ? (
+                <Archive className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+              ) : (
+                <FolderArchive className="w-3.5 h-3.5 text-amber-400" />
+              )}
+              <span>
+                {exportedZip ? 'ZIP ARCHIVE EXPORTED!' : isExportingZip ? 'PACKAGING .ZIP...' : 'BATCH EXPORT'}
+              </span>
+              <span className="text-[10px] bg-amber-950 text-amber-300 border border-amber-500/40 px-1 py-0.2 rounded font-mono hidden md:inline font-bold">
+                .ZIP
+              </span>
+            </button>
+
+            {/* Information Helper Icon Trigger */}
+            <div
+              className="cursor-help text-slate-400 hover:text-amber-400 transition-colors p-1 ml-0.5"
+              title="Generates offline backup .zip with Lua script, G-Hub JSON profile, TAInput.ini, TASystemSettings.ini, Win32 hooks, and offline guide"
+            >
+              <Info className="w-3.5 h-3.5" />
+            </div>
+
+            {/* Hover Tooltip Popover Explaining Offline Backup Contents */}
+            <div className="absolute right-0 top-full mt-2 hidden group-hover:block z-50 w-80 bg-slate-900 border border-amber-500/40 rounded-xl p-3.5 shadow-2xl shadow-black/80 backdrop-blur-md pointer-events-none animate-fadeIn text-left">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <FolderArchive className="w-4 h-4 text-amber-400" />
+                  <span className="font-['Chakra_Petch'] font-bold text-xs text-white uppercase tracking-wider">
+                    Offline Backup Archive (.ZIP)
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono bg-amber-950 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold">
+                  COMPLETE BACKUP
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-300 font-['Rajdhani'] mb-2.5 leading-snug">
+                Compresses your entire configuration into an offline-ready <code className="text-amber-300">.zip</code> archive for tournament PCs, LAN setups, and local backups:
+              </p>
+
+              <div className="space-y-1.5 text-[10px] font-mono">
+                <div className="flex items-start gap-1.5 bg-slate-950/70 p-1.5 rounded border border-slate-800">
+                  <span className="text-amber-400 font-bold">1.</span>
+                  <div>
+                    <span className="text-slate-200 font-bold">lua/RocketLeague_MasterEngine.lua</span>
+                    <p className="text-slate-400 text-[9px]">Logitech G-Hub single-threaded Lua macro engine</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-1.5 bg-slate-950/70 p-1.5 rounded border border-slate-800">
+                  <span className="text-amber-400 font-bold">2.</span>
+                  <div>
+                    <span className="text-slate-200 font-bold">profiles/Logitech_GHub_Profile.json</span>
+                    <p className="text-slate-400 text-[9px]">G-Hub importable profile with 13-button assignments</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-1.5 bg-slate-950/70 p-1.5 rounded border border-slate-800">
+                  <span className="text-amber-400 font-bold">3.</span>
+                  <div>
+                    <span className="text-slate-200 font-bold">ini/TAInput.ini &amp; TASystemSettings.ini</span>
+                    <p className="text-slate-400 text-[9px]">Calibrated deadzones &amp; ultra-low latency PC display values</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-1.5 bg-slate-950/70 p-1.5 rounded border border-slate-800">
+                  <span className="text-amber-400 font-bold">4.</span>
+                  <div>
+                    <span className="text-slate-200 font-bold">powershell/*.ps1 (Win32 Low-Level Hooks)</span>
+                    <p className="text-slate-400 text-[9px]">Standalone scripts for environments without G-Hub</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-1.5 bg-slate-950/70 p-1.5 rounded border border-slate-800">
+                  <span className="text-amber-400 font-bold">5.</span>
+                  <div>
+                    <span className="text-slate-200 font-bold">README_OFFLINE_BACKUP.txt &amp; Config JSON</span>
+                    <p className="text-slate-400 text-[9px]">Full offline installation guide &amp; raw JSON state</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

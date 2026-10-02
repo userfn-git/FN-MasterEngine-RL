@@ -15,6 +15,7 @@ import { MacroLibrary } from './components/MacroLibrary';
 import { DEFAULT_MACRO_CONFIG, generateLuaScript, RAW_TAINPUT_INI, RAW_TASYSTEMSETTINGS_INI, RAW_POWERSHELL_TEMPLATES } from './data/defaultConfig';
 import { MacroConfig, InferredSpatialEvent, OpponentStarvationState } from './types';
 import { Shield, Flame, Activity, FileCode, CheckCircle, Terminal } from 'lucide-react';
+import { generateMasterEngineZipBackup } from './utils/zipExport';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('suite');
@@ -236,6 +237,23 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
+  // Batch Export offline backup ZIP
+  const handleBatchExportZip = async () => {
+    try {
+      const zipBlob = await generateMasterEngineZipBackup(macroConfig, activePreset);
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `RocketLeague_MasterEngine_OfflineBackup_${activePreset}_${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to generate master engine zip backup', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col font-['Rajdhani'] selection:bg-cyan-500/30 selection:text-cyan-200">
       {/* Navigation Header */}
@@ -250,6 +268,7 @@ export default function App() {
         setAudioDrillActive={setAudioDrillActive}
         onExportAll={handleExportAll}
         onSyncGHub={handleSyncGHub}
+        onBatchExportZip={handleBatchExportZip}
       />
 
       {/* Main Content Area */}
