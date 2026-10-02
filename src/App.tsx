@@ -18,7 +18,18 @@ import { Shield, Flame, Activity, FileCode, CheckCircle, Terminal } from 'lucide
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('suite');
-  const [macroConfig, setMacroConfig] = useState<MacroConfig>(DEFAULT_MACRO_CONFIG);
+  const [macroConfig, setMacroConfig] = useState<MacroConfig>(() => {
+    try {
+      const saved = localStorage.getItem('fn_masterengine_macro_config_autosave');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed.internalDeadzone === 'number') {
+          return { ...DEFAULT_MACRO_CONFIG, ...parsed };
+        }
+      }
+    } catch {}
+    return DEFAULT_MACRO_CONFIG;
+  });
   const [scriptEnabled, setScriptEnabled] = useState<boolean>(true);
   const [activePreset, setActivePreset] = useState<string>('v402');
   const [audioDrillActive, setAudioDrillActive] = useState<boolean>(false);

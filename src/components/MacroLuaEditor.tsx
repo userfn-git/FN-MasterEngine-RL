@@ -29,13 +29,18 @@ import {
   Clock,
   BookmarkCheck,
   Undo2,
-  BookOpen
+  BookOpen,
+  HardDrive,
+  Save
 } from 'lucide-react';
 import { MacroConfig } from '../types';
 import { generateLuaScript } from '../data/defaultConfig';
 import { MacroValidator } from '../utils/MacroValidator';
 import { MacroValidatorPanel } from './MacroValidatorPanel';
 import { MacroLibrary } from './MacroLibrary';
+
+export const AUTOSAVE_STORAGE_KEY = 'fn_masterengine_macro_config_autosave';
+export const AUTOSAVE_META_KEY = 'fn_masterengine_macro_config_autosave_meta';
 
 export interface MacroHistoryEntry {
   id: string;
@@ -66,6 +71,102 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
   const [wordWrap, setWordWrap] = useState<boolean>(true);
   const [syncPulse, setSyncPulse] = useState<boolean>(false);
   const codeContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-Save feature state
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState<boolean>(true);
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(() => {
+    try {
+      const meta = localStorage.getItem(AUTOSAVE_META_KEY);
+      if (meta) {
+        const parsed = JSON.parse(meta);
+        return parsed.formattedTime || null;
+      }
+    } catch {}
+    return null;
+  });
+  const [isAutoSaving, setIsAutoSaving] = useState<boolean>(false);
+  const [recoveryPrompt, setRecoveryPrompt] = useState<MacroConfig | null>(null);
+  const [recoveryTimestamp, setRecoveryTimestamp] = useState<string | null>(null);
+  const lastSavedJsonRef = useRef<string>('');
+
+  // Persist configuration to localStorage helper
+  const persistConfigToLocalStorage = (cfgToSave: MacroConfig) => {
+    try {
+      setIsAutoSaving(true);
+      const json = JSON.stringify(cfgToSave);
+      localStorage.setItem(AUTOSAVE_STORAGE_KEY, json);
+      const now = new Date();
+      const formatted = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      localStorage.setItem(
+        AUTOSAVE_META_KEY,
+        JSON.stringify({
+          savedAt: now.toISOString(),
+          formattedTime: formatted,
+          internalDeadzone: cfgToSave.internalDeadzone,
+        })
+      );
+      setLastSavedTime(formatted);
+      setTimeout(() => setIsAutoSaving(false), 500);
+    } catch (err) {
+      console.error('Failed to auto-save macro config to localStorage', err);
+      setIsAutoSaving(false);
+    }
+  };
+
+  // Check for auto-saved draft on mount to offer recovery if different from initial config
+  useEffect(() => {
+    try {
+      const savedJson = localStorage.getItem(AUTOSAVE_STORAGE_KEY);
+      const metaJson = localStorage.getItem(AUTOSAVE_META_KEY);
+      if (savedJson) {
+        const parsed: MacroConfig = JSON.parse(savedJson);
+        const meta = metaJson ? JSON.parse(metaJson) : null;
+        if (
+          parsed &&
+          (parsed.internalDeadzone !== config.internalDeadzone ||
+            parsed.fastAerialJump1 !== config.fastAerialJump1 ||
+            parsed.chaindashPause !== config.chaindashPause)
+        ) {
+          setRecoveryPrompt(parsed);
+          setRecoveryTimestamp(meta?.formattedTime || 'Previous Session');
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Periodic Auto-Save: Every 3 seconds if enabled and config changed
+  useEffect(() => {
+    if (!autoSaveEnabled) return;
+
+    const interval = setInterval(() => {
+      const currentJson = JSON.stringify(config);
+      if (currentJson !== lastSavedJsonRef.current) {
+        lastSavedJsonRef.current = currentJson;
+        persistConfigToLocalStorage(config);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [config, autoSaveEnabled]);
+
+  // Window beforeunload safeguard: immediate save on tab close / reload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      try {
+        localStorage.setItem(AUTOSAVE_STORAGE_KEY, JSON.stringify(config));
+        localStorage.setItem(
+          AUTOSAVE_META_KEY,
+          JSON.stringify({
+            savedAt: new Date().toISOString(),
+            formattedTime: new Date().toLocaleTimeString(),
+          })
+        );
+      } catch {}
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [config]);
 
   // Macro History Feature: Track last 10 generated Lua scripts in local state
   const [history, setHistory] = useState<MacroHistoryEntry[]>(() => {
@@ -289,8 +390,70 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
             <Download className="w-4 h-4" />
             <span>DOWNLOAD .LUA</span>
           </button>
+
+          {/* Auto-Save Status Badge & Controls */}
+          <div className="flex items-center gap-2 bg-slate-950/80 px-2.5 py-1.5 rounded-lg border border-slate-800 text-xs font-mono">
+            <div className="flex items-center gap-1.5">
+              <HardDrive
+                className={`w-3.5 h-3.5 ${
+                  isAutoSaving
+                    ? 'text-amber-400 animate-pulse'
+                    : lastSavedTime
+                    ? 'text-emerald-400'
+                    : 'text-slate-500'
+                }`}
+              />
+              <span className="text-slate-300">
+                {isAutoSaving
+                  ? 'Auto-saving...'
+                  : lastSavedTime
+                  ? `Auto-saved: ${lastSavedTime}`
+                  : 'Auto-save active'}
+              </span>
+            </div>
+
+            <div className="w-px h-3.5 bg-slate-800"></div>
+
+            <button
+              onClick={() => persistConfigToLocalStorage(config)}
+              title="Force save current configuration to localStorage now"
+              className="text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors font-bold flex items-center gap-1"
+            >
+              <Save className="w-3 h-3" />
+              <span>SAVE NOW</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Auto-Save Draft Recovery Prompt */}
+      {recoveryPrompt && (
+        <div className="bg-gradient-to-r from-emerald-950/90 via-slate-900 to-emerald-950/90 border border-emerald-500/50 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs font-mono shadow-xl animate-fadeIn">
+          <div className="flex items-center gap-2 text-emerald-300">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>
+              Found auto-saved draft from <strong className="text-white">{recoveryTimestamp || 'previous session'}</strong> (Deadzone: {recoveryPrompt.internalDeadzone}, Jump: {recoveryPrompt.fastAerialJump1}ms, Chaindash: {recoveryPrompt.chaindashPause}ms).
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                onUpdateConfig(recoveryPrompt);
+                setRecoveryPrompt(null);
+              }}
+              className="px-3 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition-all shadow-md shadow-emerald-500/20"
+            >
+              RESTORE DRAFT
+            </button>
+            <button
+              onClick={() => setRecoveryPrompt(null)}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Linked to G-HUB Banner */}
       {linkedGHub && (
