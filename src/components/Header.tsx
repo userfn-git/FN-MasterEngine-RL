@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Flame, Zap, Shield, FileCode, Sliders, Terminal, Cpu, Sparkles, Volume2, VolumeX, Download, Cloud, Radio, Globe, ExternalLink, X, Layers, Compass, Settings, Info, BookOpen, Check, Archive, FolderArchive } from 'lucide-react';
+import { Flame, Zap, Shield, FileCode, Sliders, Terminal, Cpu, Sparkles, Volume2, VolumeX, Download, Cloud, Radio, Globe, ExternalLink, X, Layers, Compass, Settings, Info, BookOpen, Check, Archive, FolderArchive, Bookmark } from 'lucide-react';
 import { BackgroundUpdateChecker } from './BackgroundUpdateChecker';
 
 interface HeaderProps {
@@ -100,6 +100,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'cloud', label: 'Google Cloud Hub', icon: Cloud, badge: 'Firestore' },
     { id: 'simulator', label: 'Mechanics Simulator', icon: Flame, badge: '120Hz' },
     { id: 'library', label: 'Macro Presets', icon: BookOpen, badge: 'Community' },
+    { id: 'gallery', label: 'Template Gallery', icon: Bookmark, badge: 'Ranked & Custom' },
     { id: 'lua', label: 'Logitech Lua Engine', icon: FileCode, badge: 'G-Hub' },
     { id: 'powershell', label: 'PowerShell Win32 Hooks', icon: Terminal, badge: 'C# Raw' },
     { id: 'tainput', label: 'INI Config Studio', icon: Sliders, badge: 'Input & System' },

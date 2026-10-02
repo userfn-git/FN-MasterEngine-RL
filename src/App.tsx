@@ -12,6 +12,7 @@ import { TAStatsAPIManager } from './components/TAStatsAPIManager';
 import { UnifiedMasterSuite } from './components/UnifiedMasterSuite';
 import { SettingsTab } from './components/SettingsTab';
 import { MacroLibrary } from './components/MacroLibrary';
+import { TemplateGallery } from './components/TemplateGallery';
 import { DEFAULT_MACRO_CONFIG, generateLuaScript, RAW_TAINPUT_INI, RAW_TASYSTEMSETTINGS_INI, RAW_POWERSHELL_TEMPLATES } from './data/defaultConfig';
 import { MacroConfig, InferredSpatialEvent, OpponentStarvationState } from './types';
 import { Shield, Flame, Activity, FileCode, CheckCircle, Terminal } from 'lucide-react';
@@ -330,6 +331,16 @@ export default function App() {
               if (name) setActivePreset(name);
             }}
             onOpenLuaEditor={() => setActiveTab('lua')}
+          />
+        )}
+
+        {activeTab === 'gallery' && (
+          <TemplateGallery
+            config={macroConfig}
+            onApplyTemplate={(newConfig, name) => {
+              handleConfigChange(newConfig);
+              if (name) setActivePreset(name);
+            }}
           />
         )}
 
