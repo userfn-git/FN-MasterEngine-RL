@@ -22,6 +22,7 @@ import {
   Gauge
 } from 'lucide-react';
 import { MacroConfig } from '../types';
+import { PhysicsProfiler } from './PhysicsProfiler';
 
 interface LatencyLabProps {
   config: MacroConfig;
@@ -41,8 +42,8 @@ interface BenchmarkRecord {
 }
 
 export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }) => {
-  // Main Sub-Tab switcher: 'hardware' (new default) | 'curve'
-  const [activeTab, setActiveTab] = useState<'hardware' | 'curve'>('hardware');
+  // Main Sub-Tab switcher: 'hardware' | 'curve' | 'profiler'
+  const [activeTab, setActiveTab] = useState<'hardware' | 'curve' | 'profiler'>('hardware');
 
   // Key press tester state (Curve view)
   const [testLog, setTestLog] = useState<Array<{ key: string; durationMs: number; intervalMs?: number; timestamp: string }>>([]);
@@ -420,6 +421,18 @@ export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }
           >
             <Zap className="w-3.5 h-3.5" />
             <span>Sensitivity Curve &amp; Hold Lab</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('profiler')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+              activeTab === 'profiler'
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Physics Profiler (Recharts)</span>
           </button>
         </div>
       </div>
@@ -919,6 +932,11 @@ export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }
             </div>
           </div>
         </div>
+      )}
+
+      {/* VIEW 3: REAL-TIME PHYSICS PROFILER (RECHARTS) */}
+      {activeTab === 'profiler' && (
+        <PhysicsProfiler config={config} activeMechanicTitle="RLCS Continuous Input Pipeline" />
       )}
     </div>
   );

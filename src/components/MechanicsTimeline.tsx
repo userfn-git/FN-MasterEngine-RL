@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, FastForward, Clock, ShieldAlert, CheckCircle2, Sliders, Volume2, Sparkles, AlertTriangle, Crosshair, Radio } from 'lucide-react';
+import { Play, Pause, RotateCcw, FastForward, Clock, ShieldAlert, CheckCircle2, Sliders, Volume2, Sparkles, AlertTriangle, Crosshair, Radio, Activity, BarChart2 } from 'lucide-react';
 import { MECHANICS_CATALOG } from '../data/defaultConfig';
 import { MechanicDefinition, MechanicStep, MacroConfig, InferredSpatialEvent } from '../types';
+import { PhysicsProfiler } from './PhysicsProfiler';
 
 interface MechanicsTimelineProps {
   config: MacroConfig;
@@ -20,6 +21,7 @@ export const MechanicsTimeline: React.FC<MechanicsTimelineProps> = ({
   const [currentTimeMs, setCurrentTimeMs] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1); // 1x, 0.5x, 0.25x
+  const [viewportMode, setViewportMode] = useState<'canvas' | 'profiler' | 'both'>('canvas');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const mechanic = MECHANICS_CATALOG.find((m) => m.id === selectedMechanicId) || MECHANICS_CATALOG[0];
@@ -393,96 +395,141 @@ export const MechanicsTimeline: React.FC<MechanicsTimelineProps> = ({
             </span>
           </div>
 
-          {/* Transport Controls */}
+          {/* View Mode Toggle: 2D Canvas / Telemetry Graph / Both */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setCurrentTimeMs(0);
-                setIsPlaying(false);
-              }}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-              title="Reset Timeline to 0ms"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={() => setIsPlaying(!isPlaying)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono font-bold text-xs transition-all ${
-                isPlaying
-                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
-                  : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20'
-              }`}
-            >
-              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
-              <span>{isPlaying ? 'PAUSE' : 'SIMULATE'}</span>
-            </button>
-
-            {/* Speed Selector */}
-            <div className="flex items-center gap-1 bg-slate-800/80 p-0.5 rounded-lg border border-slate-700 text-xs font-mono">
-              {[
-                { label: '0.25x', val: 0.25 },
-                { label: '0.5x', val: 0.5 },
-                { label: '1.0x', val: 1.0 },
-              ].map((sp) => (
-                <button
-                  key={sp.val}
-                  onClick={() => setPlaybackSpeed(sp.val)}
-                  className={`px-2 py-1 rounded transition-colors ${
-                    playbackSpeed === sp.val ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  {sp.label}
-                </button>
-              ))}
+            <div className="flex rounded-lg bg-slate-850 p-0.5 border border-slate-700 text-xs font-mono">
+              <button
+                onClick={() => setViewportMode('canvas')}
+                className={`px-2.5 py-1 rounded transition-all ${
+                  viewportMode === 'canvas' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                2D Physics
+              </button>
+              <button
+                onClick={() => setViewportMode('profiler')}
+                className={`px-2.5 py-1 rounded transition-all flex items-center gap-1 ${
+                  viewportMode === 'profiler' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Activity className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Physics Profiler</span>
+              </button>
+              <button
+                onClick={() => setViewportMode('both')}
+                className={`px-2.5 py-1 rounded transition-all ${
+                  viewportMode === 'both' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Split View
+              </button>
             </div>
-          </div>
-        </div>
 
-        {/* 2D Physics Canvas */}
-        <div className="relative bg-[#070a10]">
-          <canvas
-            ref={canvasRef}
-            width={900}
-            height={260}
-            className="w-full h-56 sm:h-64 object-cover"
-          />
+            {/* Transport Controls */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => {
+                  setCurrentTimeMs(0);
+                  setIsPlaying(false);
+                }}
+                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                title="Reset Timeline to 0ms"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
 
-          {/* Active Key Indicators Floater */}
-          <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 pointer-events-none">
-            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">
-              Virtual Controller Inputs
-            </span>
-            <div className="flex flex-wrap justify-end gap-1.5 max-w-xs">
-              {['Boost', 'Jump 1', 'Jump 2', 'Forward (W)', 'Back (S)', 'Left (A)', 'Right (D)', 'AirRoll Left (Q)', 'AirRoll Right (E)', 'Powerslide'].map((k) => {
-                const isHeld = activeKeys.some((ak) => ak.toLowerCase().includes(k.split(' ')[0].toLowerCase()));
-                return (
-                  <span
-                    key={k}
-                    className={`px-2 py-1 rounded text-[11px] font-mono font-bold transition-all border ${
-                      isHeld
-                        ? 'bg-cyan-500 border-cyan-300 text-slate-950 shadow-md shadow-cyan-500/40 scale-105'
-                        : 'bg-slate-950/80 border-slate-800 text-slate-600 opacity-60'
+              <button
+                onClick={() => setIsPlaying(!isPlaying)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono font-bold text-xs transition-all ${
+                  isPlaying
+                    ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                    : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20'
+                }`}
+              >
+                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
+                <span>{isPlaying ? 'PAUSE' : 'SIMULATE'}</span>
+              </button>
+
+              {/* Speed Selector */}
+              <div className="flex items-center gap-1 bg-slate-800/80 p-0.5 rounded-lg border border-slate-700 text-xs font-mono">
+                {[
+                  { label: '0.25x', val: 0.25 },
+                  { label: '0.5x', val: 0.5 },
+                  { label: '1.0x', val: 1.0 },
+                ].map((sp) => (
+                  <button
+                    key={sp.val}
+                    onClick={() => setPlaybackSpeed(sp.val)}
+                    className={`px-2 py-1 rounded transition-colors ${
+                      playbackSpeed === sp.val ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    {k}
-                  </span>
-                );
-              })}
+                    {sp.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-
-          {/* Pro Tip Callout Card */}
-          <div className="absolute bottom-4 left-4 max-w-md bg-slate-950/90 border border-cyan-500/30 rounded-xl p-3 backdrop-blur-md hidden sm:block">
-            <div className="flex items-center gap-1.5 text-cyan-400 font-['Chakra_Petch'] font-semibold text-xs mb-1">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>RLCS Pro Timing Secret</span>
-            </div>
-            <p className="text-xs text-slate-300 font-['Rajdhani'] leading-relaxed">
-              {mechanic.proTip}
-            </p>
           </div>
         </div>
+
+        {/* 2D Physics Canvas Viewport */}
+        {(viewportMode === 'canvas' || viewportMode === 'both') && (
+          <div className="relative bg-[#070a10]">
+            <canvas
+              ref={canvasRef}
+              width={900}
+              height={260}
+              className="w-full h-56 sm:h-64 object-cover"
+            />
+
+            {/* Active Key Indicators Floater */}
+            <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 pointer-events-none">
+              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">
+                Virtual Controller Inputs
+              </span>
+              <div className="flex flex-wrap justify-end gap-1.5 max-w-xs">
+                {['Boost', 'Jump 1', 'Jump 2', 'Forward (W)', 'Back (S)', 'Left (A)', 'Right (D)', 'AirRoll Left (Q)', 'AirRoll Right (E)', 'Powerslide'].map((k) => {
+                  const isHeld = activeKeys.some((ak) => ak.toLowerCase().includes(k.split(' ')[0].toLowerCase()));
+                  return (
+                    <span
+                      key={k}
+                      className={`px-2 py-1 rounded text-[11px] font-mono font-bold transition-all border ${
+                        isHeld
+                          ? 'bg-cyan-500 border-cyan-300 text-slate-950 shadow-md shadow-cyan-500/40 scale-105'
+                          : 'bg-slate-950/80 border-slate-800 text-slate-600 opacity-60'
+                      }`}
+                    >
+                      {k}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Pro Tip Callout Card */}
+            <div className="absolute bottom-4 left-4 max-w-md bg-slate-950/90 border border-cyan-500/30 rounded-xl p-3 backdrop-blur-md hidden sm:block">
+              <div className="flex items-center gap-1.5 text-cyan-400 font-['Chakra_Petch'] font-semibold text-xs mb-1">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>RLCS Pro Timing Secret</span>
+              </div>
+              <p className="text-xs text-slate-300 font-['Rajdhani'] leading-relaxed">
+                {mechanic.proTip}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Real-Time Physics Profiler Telemetry Graph (Recharts) */}
+        {(viewportMode === 'profiler' || viewportMode === 'both') && (
+          <div className="p-4 bg-slate-950/60 border-t border-slate-800">
+            <PhysicsProfiler
+              config={config}
+              activeMechanicTitle={mechanic.title}
+              isSimulatorPlaying={isPlaying}
+              currentSimulatorTimeMs={currentTimeMs}
+            />
+          </div>
+        )}
 
         {/* Interactive Timeline Scrubber & Phase Breakdown */}
         <div className="p-5 border-t border-slate-800 bg-slate-950/70 space-y-4">
