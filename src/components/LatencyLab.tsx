@@ -19,11 +19,13 @@ import {
   Flame,
   ArrowUpRight,
   TrendingDown,
-  Gauge
+  Gauge,
+  BarChart3
 } from 'lucide-react';
 import { MacroConfig } from '../types';
 import { PhysicsProfiler } from './PhysicsProfiler';
 import { HardwareLatencyCalibrator } from './HardwareLatencyCalibrator';
+import { MacroBenchmarkRunner } from './MacroBenchmarkRunner';
 
 interface LatencyLabProps {
   config: MacroConfig;
@@ -43,8 +45,8 @@ interface BenchmarkRecord {
 }
 
 export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }) => {
-  // Main Sub-Tab switcher: 'hardware' | 'calibrator' | 'curve' | 'profiler'
-  const [activeTab, setActiveTab] = useState<'hardware' | 'calibrator' | 'curve' | 'profiler'>('hardware');
+  // Main Sub-Tab switcher: 'hardware' | 'calibrator' | 'benchmark' | 'curve' | 'profiler'
+  const [activeTab, setActiveTab] = useState<'hardware' | 'calibrator' | 'benchmark' | 'curve' | 'profiler'>('hardware');
 
   // Key press tester state (Curve view)
   const [testLog, setTestLog] = useState<Array<{ key: string; durationMs: number; intervalMs?: number; timestamp: string }>>([]);
@@ -422,6 +424,18 @@ export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }
           >
             <Gauge className="w-3.5 h-3.5 text-amber-400" />
             <span>Hardware Latency Calibrator</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('benchmark')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+              activeTab === 'benchmark'
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Macro Benchmark Tool</span>
           </button>
 
           <button
@@ -950,6 +964,11 @@ export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }
       {/* VIEW: HARDWARE LATENCY CALIBRATOR */}
       {activeTab === 'calibrator' && (
         <HardwareLatencyCalibrator config={config} onUpdateConfig={onUpdateConfig} />
+      )}
+
+      {/* VIEW: MACRO BENCHMARK TOOL */}
+      {activeTab === 'benchmark' && (
+        <MacroBenchmarkRunner config={config} onUpdateConfig={onUpdateConfig} />
       )}
 
       {/* VIEW 3: REAL-TIME PHYSICS PROFILER (RECHARTS) */}
