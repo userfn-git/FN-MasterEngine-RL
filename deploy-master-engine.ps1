@@ -2,7 +2,6 @@
 # FN ROCKET LEAGUE MASTER-ENGINE: DEPLOYMENT PIPELINE
 # File: deploy-master-engine.ps1
 # Output Executable: C:\FN-MasterEngine-RL\MasterEngine.exe
-# Target Platform: Windows 64-bit (PowerShell 5.1+ / .NET Framework 4.x)
 # Base Epic Games Path: C:\Program Files\Epic Games
 # Encoding: Strict 100% ASCII Only (Zero Unicode / No Non-English Characters)
 # ==============================================================================
@@ -23,7 +22,7 @@ Write-Host "   FN ROCKET LEAGUE MASTER-ENGINE: PRODUCTION DEPLOY      " -Foregro
 Write-Host "   Target Directory: $projectRoot                         " -ForegroundColor Yellow
 Write-Host "==========================================================" -ForegroundColor Cyan
 
-# 1. Clean previous builds and temporary compilation artifacts
+# 1. Clean previous build artifacts using standard PowerShell commands
 $targetExe = Join-Path $projectRoot "MasterEngine.exe"
 $legacyExe = Join-Path $projectRoot "FN_RocketLeague_MasterEngine.exe"
 $launcherScript = Join-Path $projectRoot "MasterEngineLauncher.ps1"
@@ -226,12 +225,13 @@ if (Get-Command ps2exe -ErrorAction SilentlyContinue) {
     }
 }
 
-# 5. Build MasterEngine.exe via PS2EXE or native compiler fallback
+# 5. Standard compilation approach using PS2EXE and Microsoft csc.exe fallback
 Write-Host "[5/5] Compiling $targetExe..." -ForegroundColor Yellow
 
 if ($ps2exeReady) {
-    Write-Host "      Compiling standalone executable using PS2EXE..." -ForegroundColor Green
+    Write-Host "      Compiling standalone executable using standard PS2EXE invocation..." -ForegroundColor Green
     try {
+        # Standard parameters supported by all PS2EXE versions
         ps2exe -inputFile $launcherScript `
                -outputFile $targetExe `
                -noConsole `
@@ -242,17 +242,18 @@ if ($ps2exeReady) {
                -version "4.0.2.0" `
                -x64 -ErrorAction Stop
     } catch {
-        Write-Host "      [WARN] PS2EXE with metadata threw: $_" -ForegroundColor DarkYellow
-        Write-Host "      Retrying with basic PS2EXE parameters..." -ForegroundColor Yellow
+        Write-Host "      [WARN] Standard PS2EXE call threw: $_" -ForegroundColor DarkYellow
+        Write-Host "      Retrying with essential parameters..." -ForegroundColor Yellow
         try {
             ps2exe -inputFile $launcherScript -outputFile $targetExe -noConsole -ErrorAction Stop
         } catch {
-            Write-Host "      [WARN] PS2EXE failed. Falling back to Microsoft csc.exe..." -ForegroundColor DarkYellow
+            Write-Host "      [WARN] PS2EXE failed. Falling back to Microsoft C# native compiler..." -ForegroundColor DarkYellow
             $ps2exeReady = $false
         }
     }
 }
 
+# Native compiler fallback using Microsoft csc.exe
 if (-not (Test-Path $targetExe)) {
     Write-Host "      [INFO] Compiling standalone native executable with Microsoft csc.exe..." -ForegroundColor Yellow
     $csc = "$env:SystemRoot\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
