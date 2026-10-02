@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-10-02T16:04:24.145Z",
+  "exported_at": "2026-10-02T16:13:44.773Z",
   "app_version": "4.0.2",
   "repository": "https://github.com/userfn-git/FN-MasterEngine-RL",
   "active_preset": "v402",
@@ -42,7 +42,7 @@
   },
   "sqlite_database_dump": {
     "repository": "https://github.com/userfn-git/FN-MasterEngine-RL",
-    "exported_at": "2026-10-02T16:04:23.884377",
+    "exported_at": "2026-10-02T16:13:44.499037",
     "database_path": "/app/applet/data/fn_master_engine.db",
     "settings": {
       "master_engine_state": {
