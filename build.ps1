@@ -10,7 +10,8 @@ Encoding: Strict 100% ASCII Only (Zero Unicode / No Non-English Characters)
 #>
 
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-[Console]::OutputEncoding = [System.Text.Encoding]::ASCII
+$OutputEncoding = [System.Text.Encoding]::UTF8
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 $ErrorActionPreference = "Stop"
 

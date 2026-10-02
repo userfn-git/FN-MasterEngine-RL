@@ -7,7 +7,8 @@
 # ==============================================================================
 
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-[Console]::OutputEncoding = [System.Text.Encoding]::ASCII
+$OutputEncoding = [System.Text.Encoding]::UTF8
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 $ErrorActionPreference = "Stop"
 
@@ -72,7 +73,8 @@ Write-Host "[3/5] Generating standalone launcher source script..." -ForegroundCo
 
 $runnerScript = @'
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-[Console]::OutputEncoding = [System.Text.Encoding]::ASCII
+$OutputEncoding = [System.Text.Encoding]::UTF8
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing

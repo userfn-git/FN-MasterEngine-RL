@@ -8,8 +8,9 @@ Target Epic Games Base: C:\Program Files\Epic Games
 ==============================================================================
 #>
 
-[Console]::OutputEncoding = [System.Text.Encoding]::ASCII
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+$OutputEncoding = [System.Text.Encoding]::UTF8
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 Clear-Host
 Write-Host "==========================================================" -ForegroundColor Cyan

@@ -12,7 +12,8 @@ Architecture:
 #>
 
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-[Console]::OutputEncoding = [System.Text.Encoding]::ASCII
+$OutputEncoding = [System.Text.Encoding]::UTF8
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 $localRoot = "C:\FN-MasterEngine-RL"
 $dataDir = "$localRoot\data"
