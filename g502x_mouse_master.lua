@@ -12,8 +12,8 @@
 -- FIXED G502 X HARDWARE MAPPINGS:
 --   MB3 (Middle Click)   : Toggle Script Engine ON / OFF
 --   MB4 (G4 - Side Back) : Left Speedflip (Zero-Delay Hardware Direct Burst)
---   MB5 (G5 - Side Fwd)  : Chaindash
---   MB6 (G6 - DPI Sniper): RLCS Fast Aerial
+--   MB5 (G5 - Side Fwd)  : Chaindash (Mouse Side Button 5)
+--   G6  (Sniper Button)  : RLCS Fast Aerial (DPI Shift Thumb Button)
 --   MB7 (G7 - Index Top) : Right Speedflip
 --   MB8 (G8 - Index Low) : Kickoff Speedflip
 -- ==============================================================================
@@ -21,14 +21,37 @@
 local enable_script = true
 local is_holding_mb4 = false
 
-local G502X = {
-    TOGGLE_ENGINE    = 3,  -- Middle Mouse Wheel Click
-    SPEEDFLIP_LEFT   = 4,  -- Back Side Button (G4)
-    CHAINDASH        = 6,  -- Forward Side Button (G5 mapped in G-Hub as 6)
-    DPI_SNIPER       = 5,  -- DPI Sniper Thumb Button (G6 mapped in G-Hub as 5)
-    SPEEDFLIP_RIGHT  = 7,  -- Top Left Index Button (G7)
-    SPEEDFLIP_FWD    = 8,  -- Lower Left Index Button (G8)
+-- ==============================================================================
+-- [1] EXPLICIT G502 X BINDINGS CONFIGURATION TABLE
+-- Swapped mappings:
+--   MB5 (Mouse Side Button 5) = 5 -> Chaindash
+--   G6  (DPI Sniper Button)   = 6 -> RLCS Fast Aerial
+-- ==============================================================================
+local BINDINGS = {
+    -- Hardware Button Identifiers for Logitech G502 X
+    BUTTONS = {
+        MB3 = 3,  -- Middle Mouse Click (Scroll Wheel)
+        MB4 = 4,  -- Mouse Side Button 4 (Back Side)
+        MB5 = 5,  -- Mouse Side Button 5 (Forward Side)
+        G6  = 6,  -- G6 Sniper Button (DPI Shift Thumb Rest)
+        G7  = 7,  -- Top Left Index Button
+        G8  = 8,  -- Lower Left Index Button
+    },
+
+    -- Explicit Macro Function Mappings
+    MACROS = {
+        TOGGLE_ENGINE    = 3,  -- MB3: Toggle Engine
+        SPEEDFLIP_LEFT   = 4,  -- MB4 (G4): Left Speedflip
+        CHAINDASH        = 5,  -- MB5 (G5): Forward Side Button -> Chaindash
+        FAST_AERIAL      = 6,  -- G6 (Sniper): DPI Shift Thumb Button -> RLCS Fast Aerial
+        DPI_SNIPER       = 6,  -- G6: Sniper Button Alias
+        SPEEDFLIP_RIGHT  = 7,  -- G7: Right Speedflip
+        SPEEDFLIP_FWD    = 8,  -- G8: Kickoff Speedflip
+    }
 }
+
+local G502X = BINDINGS.MACROS
+local BUTTONS = BINDINGS.BUTTONS
 
 -- Target Game Keys
 local KEYS = {
@@ -194,13 +217,24 @@ function OnEvent(event, arg, family)
 
     -- 5. PHYSICAL BUTTON PRESSED: Dispatches specific mechanic
     if event == "MOUSE_BUTTON_PRESSED" then
-        if arg == G502X.SPEEDFLIP_LEFT then
+        if arg == G502X.SPEEDFLIP_LEFT or arg == BUTTONS.MB4 then
             is_holding_mb4 = true
             TriggerSpeedflipLeft()
-        elseif arg == G502X.CHAINDASH then
+        elseif arg == G502X.CHAINDASH or arg == BUTTONS.MB5 then
             TriggerChaindash()
-        elseif arg == G502X.DPI_SNIPER then
+        elseif arg == G502X.DPI_SNIPER or arg == G502X.FAST_AERIAL or arg == BUTTONS.G6 then
             TriggerFastAerial()
+        elseif arg == G502X.SPEEDFLIP_RIGHT or arg == BUTTONS.G7 then
+            TriggerSpeedflipLeft()
+        end
+    end
+
+    -- 6. G-KEY PRESSED (For G-Hub profiles routing G6/G-keys as G-events)
+    if event == "G_PRESSED" then
+        if arg == G502X.DPI_SNIPER or arg == G502X.FAST_AERIAL or arg == BUTTONS.G6 then
+            TriggerFastAerial()
+        elseif arg == G502X.CHAINDASH or arg == BUTTONS.MB5 then
+            TriggerChaindash()
         end
     end
 end

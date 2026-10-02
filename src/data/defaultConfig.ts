@@ -12,7 +12,7 @@ export const DEFAULT_MACRO_CONFIG: MacroConfig = {
   mouseSpeedflip: 4,
   mouseChaindash: 5,
 
-  gkeyFastAerial: 1,
+  gkeyFastAerial: 6,
   gkeyFwdSpeedflip: 2,
   gkeyLeftSpeedflip: 3,
   gkeyRightSpeedflip: 4,
@@ -83,17 +83,31 @@ function RunMacro(action)
 end
 
 -----------------------------------------------------------------------
--- [3] KEY CONFIGURATION
+-- [3] KEY CONFIGURATION (LOGITECH G502 X EXPLICIT BINDINGS)
 -----------------------------------------------------------------------
 local BINDINGS = {
+    -- Hardware Button Identifiers for Logitech G502 X
+    BUTTONS = {
+        MB3 = 3,  -- Middle Mouse Click (Scroll Wheel)
+        MB4 = 4,  -- Mouse Side Button 4 (Back Side)
+        MB5 = 5,  -- Mouse Side Button 5 (Forward Side)
+        G6  = 6,  -- G6 Sniper Button (DPI Shift Thumb Rest)
+        G7  = 7,  -- Top Left Index Button (G7)
+        G8  = 8,  -- Lower Left Index Button (G8)
+    },
+
     MOUSE = {
-        TOGGLE     = {{MOUSE_TOGGLE}},   -- Middle click: toggle script on/off
-        SPEEDFLIP  = {{MOUSE_SPEEDFLIP}},   -- MB4: mouse-bound speed flip
-        CHAINDASH  = {{MOUSE_CHAINDASH}},   -- MB5: chain dash / aerial
+        TOGGLE      = {{MOUSE_TOGGLE}},     -- Middle click: toggle script on/off
+        SPEEDFLIP   = {{MOUSE_SPEEDFLIP}},  -- MB4: mouse-bound speed flip
+        CHAINDASH   = {{MOUSE_CHAINDASH}},  -- MB5: Chaindash bound to Mouse Side Button 5
+        FAST_AERIAL = 6,                    -- G6: RLCS Fast Aerial bound to Sniper Button
+        MB5         = 5,                    -- Explicit MB5 side button identifier
+        G6          = 6,                    -- Explicit G6 sniper button identifier
     },
 
     GKEY = {
-        FAST_AERIAL     = {{GKEY_FASTAERIAL}},
+        FAST_AERIAL     = 6,                     -- G6 Sniper Thumb Button
+        CHAINDASH       = 5,                     -- MB5 Forward Side Button
         FWD_SPEEDFLIP   = {{GKEY_FWD}},
         LEFT_SPEEDFLIP  = {{GKEY_LEFT}},
         RIGHT_SPEEDFLIP = {{GKEY_RIGHT}},
@@ -114,6 +128,7 @@ local BINDINGS = {
 
 local MOUSE = BINDINGS.MOUSE
 local GKEY = BINDINGS.GKEY
+local BUTTONS = BINDINGS.BUTTONS
 local K = BINDINGS.KEYS
 
 -----------------------------------------------------------------------
@@ -395,23 +410,28 @@ function OnEvent(event, arg)
     if not enable_script then return end
 
     if event == "MOUSE_BUTTON_PRESSED" then
-        if arg == MOUSE.SPEEDFLIP then
+        if arg == MOUSE.SPEEDFLIP or arg == BUTTONS.MB4 then
             RunMacro(MacroMouseSpeedflip)
             return
-        elseif arg == MOUSE.CHAINDASH then
+        elseif arg == MOUSE.CHAINDASH or arg == BUTTONS.MB5 then
             RunMacro(MacroChainDash)
+            return
+        elseif arg == MOUSE.FAST_AERIAL or arg == BUTTONS.G6 then
+            RunMacro(MacroFastAerial)
             return
         end
     end
 
     if event == "G_PRESSED" then
-        if arg == GKEY.FAST_AERIAL then
+        if arg == GKEY.FAST_AERIAL or arg == BUTTONS.G6 then
             RunMacro(MacroFastAerial)
-        elseif arg == GKEY.FWD_SPEEDFLIP then
+        elseif arg == GKEY.CHAINDASH or arg == BUTTONS.MB5 then
+            RunMacro(MacroChainDash)
+        elseif arg == GKEY.FWD_SPEEDFLIP or arg == BUTTONS.G8 then
             RunMacro(MacroForwardSpeedflip)
-        elseif arg == GKEY.LEFT_SPEEDFLIP then
+        elseif arg == GKEY.LEFT_SPEEDFLIP or arg == BUTTONS.MB4 then
             RunMacro(MacroLeftSpeedflip)
-        elseif arg == GKEY.RIGHT_SPEEDFLIP then
+        elseif arg == GKEY.RIGHT_SPEEDFLIP or arg == BUTTONS.G7 then
             RunMacro(MacroRightSpeedflip)
         end
         return
