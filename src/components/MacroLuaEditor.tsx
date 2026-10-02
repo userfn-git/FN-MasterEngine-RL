@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Copy,
   Download,
@@ -21,12 +21,28 @@ import {
   Minimize2,
   AlignLeft,
   ArrowDownToLine,
-  Filter
+  Filter,
+  History,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  BookmarkCheck,
+  Undo2
 } from 'lucide-react';
 import { MacroConfig } from '../types';
 import { generateLuaScript } from '../data/defaultConfig';
 import { MacroValidator } from '../utils/MacroValidator';
 import { MacroValidatorPanel } from './MacroValidatorPanel';
+
+export interface MacroHistoryEntry {
+  id: string;
+  timestamp: string;
+  label: string;
+  configSnapshot: MacroConfig;
+  scriptContent: string;
+  linesCount: number;
+}
 
 interface MacroLuaEditorProps {
   config: MacroConfig;
@@ -49,21 +65,76 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
   const [syncPulse, setSyncPulse] = useState<boolean>(false);
   const codeContainerRef = useRef<HTMLDivElement>(null);
 
+  // Macro History Feature: Track last 10 generated Lua scripts in local state
+  const [history, setHistory] = useState<MacroHistoryEntry[]>(() => {
+    const initialScript = generateLuaScript(config);
+    return [
+      {
+        id: 'init-snap',
+        timestamp: new Date().toLocaleTimeString(),
+        label: `Default Preset (DZ: ${config.internalDeadzone.toFixed(2)} | MB4:${config.mouseSpeedflip} | MB5:${config.mouseChaindash})`,
+        configSnapshot: { ...config },
+        scriptContent: initialScript,
+        linesCount: initialScript.split('\n').length,
+      }
+    ];
+  });
+  const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number>(-1); // -1 = Current Live Draft
+  const [showHistoryDrawer, setShowHistoryDrawer] = useState<boolean>(false);
+
   const generatedScript = useMemo(() => {
     return generateLuaScript(config);
   }, [config]);
 
+  // Track script updates in local history (max 10 items)
+  useEffect(() => {
+    setHistory((prev) => {
+      if (prev.length > 0 && prev[0].scriptContent === generatedScript) {
+        return prev;
+      }
+      const newEntry: MacroHistoryEntry = {
+        id: `snap-${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString(),
+        label: `DZ: ${config.internalDeadzone.toFixed(2)} | Jump: ${config.fastAerialJump1}ms | CD: ${config.chaindashPause}ms`,
+        configSnapshot: { ...config },
+        scriptContent: generatedScript,
+        linesCount: generatedScript.split('\n').length,
+      };
+      // Keep strictly the last 10 snapshots
+      return [newEntry, ...prev].slice(0, 10);
+    });
+  }, [generatedScript, config]);
+
+  // Active script displayed in preview pane (either live draft or selected historical snapshot)
+  const activeScript = useMemo(() => {
+    if (selectedHistoryIndex >= 0 && history[selectedHistoryIndex]) {
+      return history[selectedHistoryIndex].scriptContent;
+    }
+    return generatedScript;
+  }, [selectedHistoryIndex, history, generatedScript]);
+
   const scriptLines = useMemo(() => {
-    return generatedScript.split('\n');
-  }, [generatedScript]);
+    return activeScript.split('\n');
+  }, [activeScript]);
 
   const validationReport = useMemo(() => {
-    return MacroValidator.validate(generatedScript, config);
-  }, [generatedScript, config]);
+    return MacroValidator.validate(activeScript, config);
+  }, [activeScript, config]);
 
   // Real-time update dispatcher that triggers live sync pulse
   const updateConfigWithPulse = (delta: Partial<MacroConfig>) => {
+    // If user was viewing a historical snapshot, return to live draft on new edits
+    if (selectedHistoryIndex !== -1) {
+      setSelectedHistoryIndex(-1);
+    }
     onUpdateConfig({ ...config, ...delta });
+    setSyncPulse(true);
+    setTimeout(() => setSyncPulse(false), 800);
+  };
+
+  const restoreHistorySnapshot = (entry: MacroHistoryEntry) => {
+    onUpdateConfig({ ...entry.configSnapshot });
+    setSelectedHistoryIndex(-1);
     setSyncPulse(true);
     setTimeout(() => setSyncPulse(false), 800);
   };
@@ -289,8 +360,52 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
           </div>
         </div>
 
-        {/* Real-Time Sync Status */}
-        <div className="flex items-center gap-2">
+        {/* Right Side: Macro History Tracker & Real-Time Sync Status */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Macro History Toggler & Quick Navigation */}
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+            <button
+              disabled={selectedHistoryIndex >= history.length - 1}
+              onClick={() => setSelectedHistoryIndex((prev) => Math.min(history.length - 1, prev + 1))}
+              title="Toggle to Older History Snapshot"
+              className="p-1 rounded text-slate-400 hover:text-cyan-400 hover:bg-slate-800 disabled:opacity-30 disabled:hover:text-slate-400 disabled:hover:bg-transparent transition-colors"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
+              title="Click to view all 10 tracked snapshots"
+              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-bold transition-all ${
+                selectedHistoryIndex >= 0
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  : 'text-slate-300 hover:text-cyan-400'
+              }`}
+            >
+              <History className="w-3.5 h-3.5 text-cyan-400" />
+              <span>History ({history.length}/10)</span>
+              {selectedHistoryIndex >= 0 ? (
+                <span className="text-[10px] bg-amber-500 text-slate-950 font-bold px-1.5 rounded-full">
+                  #{history.length - selectedHistoryIndex}
+                </span>
+              ) : (
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-1.5 rounded-full">
+                  Live
+                </span>
+              )}
+            </button>
+
+            <button
+              disabled={selectedHistoryIndex <= -1}
+              onClick={() => setSelectedHistoryIndex((prev) => Math.max(-1, prev - 1))}
+              title="Toggle to Newer History Snapshot (or Live Draft)"
+              className="p-1 rounded text-slate-400 hover:text-cyan-400 hover:bg-slate-800 disabled:opacity-30 disabled:hover:text-slate-400 disabled:hover:bg-transparent transition-colors"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Real-Time Sync Status */}
           {syncPulse ? (
             <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-500/60 text-[11px] font-bold animate-pulse shadow-sm shadow-cyan-500/20">
               <Zap className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
@@ -304,6 +419,81 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
           )}
         </div>
       </div>
+
+      {/* Expandable Macro History Drawer */}
+      {showHistoryDrawer && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-3 animate-fadeIn text-xs font-mono">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-cyan-400" />
+              <h4 className="font-['Chakra_Petch'] font-bold text-sm text-slate-200 uppercase">
+                Macro History Snapshots (Last 10 Local Builds)
+              </h4>
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedHistoryIndex >= 0 && (
+                <button
+                  onClick={() => setSelectedHistoryIndex(-1)}
+                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors"
+                >
+                  Return to Live Current Draft
+                </button>
+              )}
+              <button
+                onClick={() => setShowHistoryDrawer(false)}
+                className="text-slate-400 hover:text-slate-200 text-xs px-2 py-1 rounded hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2 max-h-48 overflow-y-auto pr-1">
+            {history.map((item, idx) => {
+              const isSelected = selectedHistoryIndex === idx;
+              const isCurrentLive = selectedHistoryIndex === -1 && idx === 0;
+
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => setSelectedHistoryIndex(idx)}
+                  className={`p-2.5 rounded-lg border cursor-pointer transition-all ${
+                    isSelected
+                      ? 'bg-amber-950/50 border-amber-500 text-amber-200 ring-1 ring-amber-500/40'
+                      : isCurrentLive
+                      ? 'bg-emerald-950/20 border-emerald-500/40 text-slate-300 hover:border-emerald-500/80'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-[10px] mb-1">
+                    <span className="font-bold">
+                      Snapshot #{history.length - idx}
+                      {idx === 0 && ' (Latest)'}
+                    </span>
+                    <span className="text-slate-500">{item.timestamp}</span>
+                  </div>
+                  <p className="text-[11px] truncate text-slate-300 font-sans mb-2">
+                    {item.label}
+                  </p>
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[10px]">
+                    <span className="text-cyan-400">{item.linesCount} lines</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        restoreHistorySnapshot(item);
+                      }}
+                      title="Restore configuration from this snapshot"
+                      className="px-1.5 py-0.5 rounded bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 font-bold"
+                    >
+                      Restore
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Main Grid: Config Knobs + Live Lua Code Inspector */}
       <div className={`grid gap-4 ${
@@ -732,6 +922,36 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
               </span>
             </div>
           </div>
+
+          {/* Active Historical Snapshot Preview Banner */}
+          {selectedHistoryIndex >= 0 && (
+            <div className="bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 border-b border-amber-500/40 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-amber-200 animate-fadeIn">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  <strong>PREVIEWING SNAPSHOT #{history.length - selectedHistoryIndex}</strong> ({history[selectedHistoryIndex]?.timestamp})
+                </span>
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded font-bold">
+                  HISTORICAL VIEW
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => restoreHistorySnapshot(history[selectedHistoryIndex])}
+                  className="flex items-center gap-1 px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-all shadow-md shadow-amber-500/20"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Restore Snapshot to Live</span>
+                </button>
+                <button
+                  onClick={() => setSelectedHistoryIndex(-1)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors"
+                >
+                  Return to Live Draft
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Quick Jump Anchor Bar */}
           <div className="px-4 py-1.5 bg-slate-900/60 border-b border-slate-800/80 flex items-center gap-1.5 overflow-x-auto text-[10px] font-mono text-slate-400 shrink-0">
