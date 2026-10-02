@@ -201,7 +201,7 @@ $btnLaunch.Add_Click({
 [void]$form.ShowDialog()
 '@
 
-[System.IO.File]::WriteAllText($launcherScript, $runnerScript, [System.Text.Encoding]::ASCII)
+[System.IO.File]::WriteAllText($launcherScript, $runnerScript, [System.Text.Encoding]::UTF8)
 Write-Host "[OK] Standalone launcher source generated at $launcherScript" -ForegroundColor Green
 
 # 4. Programmatically check and configure PS2EXE
@@ -210,6 +210,8 @@ Write-Host "[4/5] Checking for PS2EXE compilation module..." -ForegroundColor Ye
 $ps2exeReady = $false
 if (Get-Command ps2exe -ErrorAction SilentlyContinue) {
     $ps2exeReady = $true
+} elseif (Get-Command Invoke-ps2exe -ErrorAction SilentlyContinue) {
+    $ps2exeReady = $true
 } else {
     try {
         Write-Host "      Installing PS2EXE from PSGallery for CurrentUser..." -ForegroundColor Yellow
@@ -217,7 +219,7 @@ if (Get-Command ps2exe -ErrorAction SilentlyContinue) {
         Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue | Out-Null
         Install-Module -Name ps2exe -Scope CurrentUser -Force -AllowClobber -ErrorAction SilentlyContinue
         Import-Module ps2exe -Force -ErrorAction SilentlyContinue
-        if (Get-Command ps2exe -ErrorAction SilentlyContinue) {
+        if ((Get-Command ps2exe -ErrorAction SilentlyContinue) -or (Get-Command Invoke-ps2exe -ErrorAction SilentlyContinue)) {
             $ps2exeReady = $true
         }
     } catch {
@@ -228,24 +230,24 @@ if (Get-Command ps2exe -ErrorAction SilentlyContinue) {
 # 5. Standard compilation approach using PS2EXE and Microsoft csc.exe fallback
 Write-Host "[5/5] Compiling $targetExe..." -ForegroundColor Yellow
 
-if ($ps2exeReady) {
+if ($ps2exeReady -and (Test-Path $launcherScript)) {
     Write-Host "      Compiling standalone executable using standard PS2EXE invocation..." -ForegroundColor Green
     try {
-        # Standard parameters supported by all PS2EXE versions
-        ps2exe -inputFile $launcherScript `
-               -outputFile $targetExe `
-               -noConsole `
-               -title "FN Rocket League Master-Engine" `
-               -description "Competitive Esports Mechanics & Win32 Interop Kernel" `
-               -company "FN Esports" `
-               -product "MasterEngine" `
-               -version "4.0.2.0" `
-               -x64 -ErrorAction Stop
+        # Standard parameters supported by PS2EXE
+        Invoke-ps2exe -inputFile $launcherScript `
+                      -outputFile $targetExe `
+                      -noConsole `
+                      -title "FN Rocket League Master-Engine" `
+                      -description "Competitive Esports Mechanics & Win32 Interop Kernel" `
+                      -company "FN Esports" `
+                      -product "MasterEngine" `
+                      -version "4.0.2.0" `
+                      -x64 -ErrorAction Stop
     } catch {
         Write-Host "      [WARN] Standard PS2EXE call threw: $_" -ForegroundColor DarkYellow
         Write-Host "      Retrying with essential parameters..." -ForegroundColor Yellow
         try {
-            ps2exe -inputFile $launcherScript -outputFile $targetExe -noConsole -ErrorAction Stop
+            Invoke-ps2exe -inputFile $launcherScript -outputFile $targetExe -noConsole -ErrorAction Stop
         } catch {
             Write-Host "      [WARN] PS2EXE failed. Falling back to Microsoft C# native compiler..." -ForegroundColor DarkYellow
             $ps2exeReady = $false
