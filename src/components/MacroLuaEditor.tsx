@@ -1,5 +1,28 @@
-import React, { useState, useMemo } from 'react';
-import { Copy, Download, Check, FileCode, Sliders, Shield, Terminal, HelpCircle, Eye, EyeOff, Sparkles, Zap, AlertOctagon, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import {
+  Copy,
+  Download,
+  Check,
+  FileCode,
+  Sliders,
+  Shield,
+  Terminal,
+  HelpCircle,
+  Eye,
+  EyeOff,
+  Sparkles,
+  Zap,
+  AlertOctagon,
+  ShieldAlert,
+  CheckCircle2,
+  Search,
+  Columns,
+  Maximize2,
+  Minimize2,
+  AlignLeft,
+  ArrowDownToLine,
+  Filter
+} from 'lucide-react';
 import { MacroConfig } from '../types';
 import { generateLuaScript } from '../data/defaultConfig';
 import { MacroValidator } from '../utils/MacroValidator';
@@ -15,15 +38,47 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
   const [copiedPath, setCopiedPath] = useState<boolean>(false);
   const [linkedGHub, setLinkedGHub] = useState<boolean>(false);
   const [showGuide, setShowGuide] = useState<boolean>(false);
-  const [activeSubTab, setActiveSubTab] = useState<'editor' | 'bindings' | 'math'>('editor');
+  const [activeSubTab, setActiveSubTab] = useState<'editor' | 'bindings' | 'math'>('bindings');
   const [exportWarningModal, setExportWarningModal] = useState<boolean>(false);
   const [pendingAction, setPendingAction] = useState<'copy' | 'download' | 'link' | null>(null);
 
-  const generatedScript = generateLuaScript(config);
+  // Side-by-Side Real-Time Preview Pane State
+  const [viewMode, setViewMode] = useState<'split-equal' | 'split-wide' | 'code-full'>('split-equal');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [wordWrap, setWordWrap] = useState<boolean>(true);
+  const [syncPulse, setSyncPulse] = useState<boolean>(false);
+  const codeContainerRef = useRef<HTMLDivElement>(null);
+
+  const generatedScript = useMemo(() => {
+    return generateLuaScript(config);
+  }, [config]);
+
+  const scriptLines = useMemo(() => {
+    return generatedScript.split('\n');
+  }, [generatedScript]);
 
   const validationReport = useMemo(() => {
     return MacroValidator.validate(generatedScript, config);
   }, [generatedScript, config]);
+
+  // Real-time update dispatcher that triggers live sync pulse
+  const updateConfigWithPulse = (delta: Partial<MacroConfig>) => {
+    onUpdateConfig({ ...config, ...delta });
+    setSyncPulse(true);
+    setTimeout(() => setSyncPulse(false), 800);
+  };
+
+  const jumpToSection = (targetText: string) => {
+    const lineIndex = scriptLines.findIndex((line) => line.toLowerCase().includes(targetText.toLowerCase()));
+    if (lineIndex >= 0) {
+      const el = document.getElementById(`lua-line-${lineIndex + 1}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('bg-cyan-500/40');
+        setTimeout(() => el.classList.remove('bg-cyan-500/40'), 1400);
+      }
+    }
+  };
 
   const executeCopy = () => {
     navigator.clipboard.writeText(generatedScript);
@@ -89,6 +144,13 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
     setCopiedPath(true);
     setTimeout(() => setCopiedPath(false), 2000);
   };
+
+  // Search match count
+  const searchMatchCount = useMemo(() => {
+    if (!searchQuery.trim()) return 0;
+    const q = searchQuery.toLowerCase();
+    return scriptLines.filter((l) => l.toLowerCase().includes(q)).length;
+  }, [scriptLines, searchQuery]);
 
   return (
     <div className="space-y-4">
@@ -193,10 +255,67 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
       {/* Real-Time MacroValidator In-Editor Warning System */}
       <MacroValidatorPanel report={validationReport} />
 
+      {/* Side-by-Side View Mode Selector & Real-Time Sync Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2 text-xs font-mono">
+        <div className="flex items-center gap-2">
+          <span className="text-slate-400 flex items-center gap-1.5">
+            <Columns className="w-4 h-4 text-cyan-400" /> Layout Mode:
+          </span>
+          <div className="flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
+            <button
+              onClick={() => setViewMode('split-equal')}
+              className={`px-2.5 py-1 rounded text-[11px] transition-all ${
+                viewMode === 'split-equal' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              50:50 Split
+            </button>
+            <button
+              onClick={() => setViewMode('split-wide')}
+              className={`px-2.5 py-1 rounded text-[11px] transition-all ${
+                viewMode === 'split-wide' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              40:60 Wide Code
+            </button>
+            <button
+              onClick={() => setViewMode('code-full')}
+              className={`px-2.5 py-1 rounded text-[11px] transition-all ${
+                viewMode === 'code-full' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Code Fullscreen
+            </button>
+          </div>
+        </div>
+
+        {/* Real-Time Sync Status */}
+        <div className="flex items-center gap-2">
+          {syncPulse ? (
+            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-500/60 text-[11px] font-bold animate-pulse shadow-sm shadow-cyan-500/20">
+              <Zap className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+              <span>REAL-TIME LIVE SYNC (0ms)</span>
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 text-[11px]">
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>LIVE PREVIEW ACTIVE</span>
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Main Grid: Config Knobs + Live Lua Code Inspector */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left Column: Live Controls (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
+      <div className={`grid gap-4 ${
+        viewMode === 'split-equal'
+          ? 'grid-cols-1 lg:grid-cols-2'
+          : viewMode === 'split-wide'
+          ? 'grid-cols-1 lg:grid-cols-12'
+          : 'grid-cols-1'
+      }`}>
+        {/* Left Column: Live Controls (Hidden in code-full mode) */}
+        {viewMode !== 'code-full' && (
+          <div className={`${viewMode === 'split-wide' ? 'lg:col-span-5' : ''} space-y-4`}>
           {/* Sub Navigation */}
           <div className="flex rounded-lg bg-slate-900 p-1 border border-slate-800 text-xs font-mono">
             <button
@@ -539,39 +658,179 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
               </div>
             </div>
           )}
-        </div>
+          </div>
+        )}
 
-        {/* Right Column: Live Syntax-Formatted Lua Code Box (7 cols) */}
-        <div className="lg:col-span-7 bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden flex flex-col shadow-xl">
-          <div className="px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+        {/* Right Column: Interactive Real-Time Lua Code Preview Pane */}
+        <div className={`${
+          viewMode === 'split-wide' ? 'lg:col-span-7' : 'w-full'
+        } bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden flex flex-col shadow-2xl`}>
+          {/* Top Header of Preview Pane */}
+          <div className="px-4 py-3 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="flex gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80"></span>
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80"></span>
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></span>
               </div>
-              <span className="text-xs font-mono text-slate-300 ml-2">
+              <span className="text-xs font-mono font-bold text-slate-200 ml-1">
                 RocketLeague_MasterEngine.lua
               </span>
+
               {validationReport.isValid ? (
-                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-1.5 py-0.2 rounded flex items-center gap-1">
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 rounded-full flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" /> Syntax Verified
                 </span>
               ) : (
-                <span className="text-[10px] font-mono text-rose-400 bg-rose-950/80 border border-rose-500/40 px-1.5 py-0.2 rounded flex items-center gap-1">
+                <span className="text-[10px] font-mono text-rose-400 bg-rose-950/80 border border-rose-500/40 px-2 py-0.5 rounded-full flex items-center gap-1">
                   <AlertOctagon className="w-3 h-3" /> {validationReport.errorCount} Issue{validationReport.errorCount > 1 ? 's' : ''}
                 </span>
               )}
+
+              {syncPulse && (
+                <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950 border border-cyan-500/50 px-2 py-0.5 rounded-full animate-pulse flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-cyan-400" /> SYNCED
+                </span>
+              )}
             </div>
-            <span className="text-[11px] font-mono text-cyan-400">
-              {generatedScript.split('\n').length} lines
-            </span>
+
+            {/* Quick Actions in Header */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Search Filter */}
+              <div className="relative flex items-center">
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2" />
+                <input
+                  type="text"
+                  placeholder="Search code..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-slate-950 border border-slate-700 rounded-lg pl-7 pr-2 py-1 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-32 focus:w-44 transition-all font-mono"
+                />
+                {searchMatchCount > 0 && (
+                  <span className="ml-1 text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-1.5 py-0.5 rounded">
+                    {searchMatchCount}
+                  </span>
+                )}
+              </div>
+
+              {/* Word Wrap Toggle */}
+              <button
+                onClick={() => setWordWrap(!wordWrap)}
+                title="Toggle Word Wrap"
+                className={`px-2 py-1 rounded text-[11px] font-mono border transition-colors flex items-center gap-1 ${
+                  wordWrap
+                    ? 'bg-cyan-950 text-cyan-400 border-cyan-500/40'
+                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                }`}
+              >
+                <AlignLeft className="w-3.5 h-3.5" />
+                <span>Wrap</span>
+              </button>
+
+              <span className="text-[11px] font-mono text-slate-400">
+                {scriptLines.length} lines
+              </span>
+            </div>
           </div>
 
-          <div className="p-4 overflow-y-auto max-h-[580px] font-mono text-xs text-slate-300 leading-relaxed space-y-1 selection:bg-cyan-500/30">
-            <pre className="text-slate-300 whitespace-pre-wrap font-['JetBrains_Mono']">
-              {generatedScript}
-            </pre>
+          {/* Quick Jump Anchor Bar */}
+          <div className="px-4 py-1.5 bg-slate-900/60 border-b border-slate-800/80 flex items-center gap-1.5 overflow-x-auto text-[10px] font-mono text-slate-400 shrink-0">
+            <span className="text-slate-500 flex items-center gap-1 shrink-0">
+              <ArrowDownToLine className="w-3 h-3 text-cyan-400" /> Jump:
+            </span>
+            <button
+              onClick={() => jumpToSection('[1] CORE CONFIGURATION')}
+              className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 transition-colors shrink-0"
+            >
+              CONFIG
+            </button>
+            <button
+              onClick={() => jumpToSection('[3] KEY CONFIGURATION')}
+              className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 transition-colors shrink-0"
+            >
+              BINDINGS
+            </button>
+            <button
+              onClick={() => jumpToSection('[4] SAFE INPUT DISPATCHER')}
+              className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 transition-colors shrink-0"
+            >
+              SAFE DISPATCHER
+            </button>
+            <button
+              onClick={() => jumpToSection('MacroFastAerial')}
+              className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 transition-colors shrink-0"
+            >
+              FAST AERIAL
+            </button>
+            <button
+              onClick={() => jumpToSection('MacroMouseSpeedflip')}
+              className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 transition-colors shrink-0"
+            >
+              SPEEDFLIP (MB4)
+            </button>
+            <button
+              onClick={() => jumpToSection('MacroChainDash')}
+              className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 transition-colors shrink-0"
+            >
+              CHAIN DASH (MB5)
+            </button>
+            <button
+              onClick={() => jumpToSection('function OnEvent')}
+              className="px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-900 transition-colors shrink-0 font-bold"
+            >
+              OnEvent()
+            </button>
+          </div>
+
+          {/* Code Viewer Body with Line Numbers Gutter */}
+          <div
+            ref={codeContainerRef}
+            className="p-4 overflow-y-auto max-h-[620px] font-mono text-xs text-slate-300 leading-relaxed selection:bg-cyan-500/30"
+          >
+            {scriptLines.map((line, index) => {
+              const lineNum = index + 1;
+              const isMatch = searchQuery && line.toLowerCase().includes(searchQuery.toLowerCase());
+              const isComment = line.trim().startsWith('--');
+              const isHeader = line.includes('---') || line.includes('===');
+              const isFunc = line.includes('function ');
+              const isBindings = line.includes('BINDINGS') || line.includes('BUTTONS');
+
+              return (
+                <div
+                  key={lineNum}
+                  id={`lua-line-${lineNum}`}
+                  className={`flex items-start group rounded transition-colors duration-200 py-0.5 ${
+                    isMatch
+                      ? 'bg-amber-500/20 text-amber-200 font-bold'
+                      : 'hover:bg-slate-900/50'
+                  }`}
+                >
+                  {/* Line Number Gutter */}
+                  <span className="w-10 select-none text-right pr-3 text-slate-600 font-mono text-[11px] shrink-0 border-r border-slate-800/80 mr-3 group-hover:text-slate-400">
+                    {lineNum}
+                  </span>
+
+                  {/* Code Line */}
+                  <span
+                    className={`font-['JetBrains_Mono'] ${
+                      wordWrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre overflow-x-auto'
+                    } flex-1 ${
+                      isComment
+                        ? 'text-slate-500 italic'
+                        : isHeader
+                        ? 'text-cyan-500/80 font-bold'
+                        : isFunc
+                        ? 'text-cyan-300 font-bold'
+                        : isBindings
+                        ? 'text-emerald-300'
+                        : 'text-slate-200'
+                    }`}
+                  >
+                    {line}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
