@@ -19,6 +19,7 @@ import {
   Flame,
   ArrowUpRight,
   TrendingDown,
+  TrendingUp,
   Gauge,
   BarChart3,
   Sliders
@@ -28,6 +29,7 @@ import { PhysicsProfiler } from './PhysicsProfiler';
 import { HardwareLatencyCalibrator } from './HardwareLatencyCalibrator';
 import { MacroBenchmarkRunner } from './MacroBenchmarkRunner';
 import { SwitchProfile } from './SwitchProfile';
+import { MacroPerformanceDashboard } from './MacroPerformanceDashboard';
 
 interface LatencyLabProps {
   config: MacroConfig;
@@ -47,8 +49,8 @@ interface BenchmarkRecord {
 }
 
 export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }) => {
-  // Main Sub-Tab switcher: 'hardware' | 'calibrator' | 'switches' | 'benchmark' | 'curve' | 'profiler'
-  const [activeTab, setActiveTab] = useState<'hardware' | 'calibrator' | 'switches' | 'benchmark' | 'curve' | 'profiler'>('hardware');
+  // Main Sub-Tab switcher: 'hardware' | 'calibrator' | 'dashboard' | 'switches' | 'benchmark' | 'curve' | 'profiler'
+  const [activeTab, setActiveTab] = useState<'hardware' | 'calibrator' | 'dashboard' | 'switches' | 'benchmark' | 'curve' | 'profiler'>('hardware');
 
   // Key press tester state (Curve view)
   const [testLog, setTestLog] = useState<Array<{ key: string; durationMs: number; intervalMs?: number; timestamp: string }>>([]);
@@ -426,6 +428,18 @@ export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }
           >
             <Gauge className="w-3.5 h-3.5 text-amber-400" />
             <span>Hardware Latency Calibrator</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+              activeTab === 'dashboard'
+                ? 'bg-sky-500/20 text-sky-300 border border-sky-500/50 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-sky-400" />
+            <span>Consistency Dashboard</span>
           </button>
 
           <button
@@ -978,6 +992,11 @@ export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }
       {/* VIEW: HARDWARE LATENCY CALIBRATOR */}
       {activeTab === 'calibrator' && (
         <HardwareLatencyCalibrator config={config} onUpdateConfig={onUpdateConfig} />
+      )}
+
+      {/* VIEW: MACRO TIMING PERFORMANCE DASHBOARD (RECHARTS) */}
+      {activeTab === 'dashboard' && (
+        <MacroPerformanceDashboard config={config} activePresetName="v4.0.2 Pro" onUpdateConfig={onUpdateConfig} />
       )}
 
       {/* VIEW: SWITCH PROFILE CALIBRATOR */}
