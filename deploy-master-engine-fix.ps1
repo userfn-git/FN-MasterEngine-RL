@@ -1,19 +1,19 @@
 # ==============================================================================
-# FN ROCKET LEAGUE MASTER-ENGINE: DEPLOYMENT & COMPILATION PIPELINE
+# FN ROCKET LEAGUE MASTER-ENGINE: COMPILATION & PROCESS MANAGEMENT PIPELINE
 # Script: deploy-master-engine-fix.ps1
 # Target Executable: C:\FN-MasterEngine-RL\MasterEngine.exe
 # Base Epic Games Path: C:\Program Files\Epic Games
 # Encoding: Strict 100% ASCII Only (Zero Unicode / Zero Non-English Characters)
 # ==============================================================================
 
-# Safely set security protocol and output encoding to avoid invalid console handle errors
+# Safely set TLS protocol and UTF-8 encoding without throwing console handle errors
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
 $OutputEncoding = [System.Text.Encoding]::UTF8
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 $ErrorActionPreference = "Stop"
 
-# Initialize local project directory
+# Initialize local working directory
 $projectRoot = "C:\FN-MasterEngine-RL"
 if (-not (Test-Path $projectRoot)) {
     New-Item -ItemType Directory -Path $projectRoot -Force | Out-Null
@@ -22,45 +22,77 @@ Set-Location $projectRoot
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "   FN MASTER-ENGINE: PRODUCTION COMPILATION PIPELINE      " -ForegroundColor Green
-Write-Host "   Workspace: $projectRoot                                " -ForegroundColor Yellow
+Write-Host "   Target Workspace: $projectRoot                         " -ForegroundColor Yellow
 Write-Host "==========================================================" -ForegroundColor Cyan
 
-# ------------------------------------------------------------------------------
-# STEP 1: DELETE LEGACY BUILD FILES AND TEMPORARY ARTIFACTS
-# ------------------------------------------------------------------------------
-Write-Host "[1/5] Removing legacy build files and temporary artifacts..." -ForegroundColor Yellow
+$targetExe = Join-Path $projectRoot "MasterEngine.exe"
+$legacyExe = Join-Path $projectRoot "FN_RocketLeague_MasterEngine.exe"
+$launcherScript = Join-Path $projectRoot "MasterEngineLauncher.ps1"
 
-# Terminate active engine processes to release Windows file locks
-$activeProcs = Get-Process -Name "MasterEngine", "FN_RocketLeague_MasterEngine" -ErrorAction SilentlyContinue
-if ($activeProcs) {
-    Write-Host "      Terminating active MasterEngine instance to release Windows file lock..." -ForegroundColor DarkYellow
-    $activeProcs | Stop-Process -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Milliseconds 700
+# ------------------------------------------------------------------------------
+# STEP 1: TERMINATE RUNNING PROCESSES LOCKING MASTERENGINE.EXE
+# ------------------------------------------------------------------------------
+Write-Host "[1/6] Checking for active processes locking MasterEngine.exe..." -ForegroundColor Yellow
+
+$processNames = @("MasterEngine", "FN_RocketLeague_MasterEngine")
+$lockedProcesses = Get-Process -Name $processNames -ErrorAction SilentlyContinue
+
+if ($lockedProcesses) {
+    Write-Host "      Detected active process(es) holding file lock:" -ForegroundColor Yellow
+    foreach ($proc in $lockedProcesses) {
+        Write-Host "      - Process ID: $($proc.Id) | Name: $($proc.ProcessName)" -ForegroundColor DarkYellow
+    }
+
+    Write-Host "      Terminating locking process(es) to release Windows file handle..." -ForegroundColor Yellow
+    $lockedProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+
+    # Wait up to 3 seconds for the file handle to be released by the OS
+    $maxWaitMs = 3000
+    $waitedMs = 0
+    while ($waitedMs -lt $maxWaitMs) {
+        Start-Sleep -Milliseconds 250
+        $waitedMs += 250
+        $stillRunning = Get-Process -Name $processNames -ErrorAction SilentlyContinue
+        if (-not $stillRunning) {
+            break
+        }
+    }
+    Write-Host "[OK] Active engine process terminated. File lock released." -ForegroundColor Green
+} else {
+    Write-Host "[OK] No active MasterEngine processes found. File lock is clear." -ForegroundColor Green
 }
 
-$legacyBuildFiles = @(
-    (Join-Path $projectRoot "MasterEngine.exe"),
-    (Join-Path $projectRoot "FN_RocketLeague_MasterEngine.exe"),
-    (Join-Path $projectRoot "MasterEngineLauncher.ps1"),
-    (Join-Path $projectRoot "EngineLauncher.ps1"),
+# ------------------------------------------------------------------------------
+# STEP 2: REMOVE LEGACY BUILD ARTIFACTS
+# ------------------------------------------------------------------------------
+Write-Host "[2/6] Cleaning previous build artifacts and temporary files..." -ForegroundColor Yellow
+
+$cleanTargets = @(
+    $targetExe,
+    $legacyExe,
+    $launcherScript,
     (Join-Path $projectRoot "MasterEngine.pdb"),
     (Join-Path $projectRoot "FN_RocketLeague_MasterEngine.pdb"),
     (Join-Path $projectRoot "*.tmp"),
     (Join-Path $projectRoot "*.log")
 )
 
-foreach ($target in $legacyBuildFiles) {
-    if (Test-Path $target) {
-        Remove-Item -Path $target -Force -Recurse -ErrorAction SilentlyContinue
-        Write-Host "      Cleaned legacy file: $target" -ForegroundColor DarkGray
+foreach ($item in $cleanTargets) {
+    if (Test-Path $item) {
+        try {
+            Remove-Item -Path $item -Force -Recurse -ErrorAction Stop
+            Write-Host "      Cleaned legacy artifact: $item" -ForegroundColor DarkGray
+        } catch {
+            Write-Host "      [WARN] Could not remove $item directly ($($_)). Proceeding..." -ForegroundColor DarkYellow
+        }
     }
 }
-Write-Host "[OK] Clean build workspace confirmed." -ForegroundColor Green
+Write-Host "[OK] Workspace cleanup completed." -ForegroundColor Green
 
 # ------------------------------------------------------------------------------
-# STEP 2: VERIFY EPIC GAMES DIRECTORY STRUCTURE
+# STEP 3: VERIFY EPIC GAMES DIRECTORY STRUCTURE
 # ------------------------------------------------------------------------------
-Write-Host "[2/5] Verifying Epic Games directory structure..." -ForegroundColor Yellow
+Write-Host "[3/6] Verifying Epic Games directory structure..." -ForegroundColor Yellow
 
 $epicGamesBase = "C:\Program Files\Epic Games"
 $epicLauncherExe = Join-Path $epicGamesBase "Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe"
@@ -69,24 +101,22 @@ $rlGameExe = Join-Path $epicGamesBase "rocketleague\Binaries\Win64\RocketLeague.
 if (Test-Path $epicGamesBase) {
     Write-Host "[OK] Detected Epic Games root directory: $epicGamesBase" -ForegroundColor Green
     if (Test-Path $rlGameExe) {
-        Write-Host "     Rocket League 64-bit client verified: $rlGameExe" -ForegroundColor Green
+        Write-Host "     Found Rocket League 64-bit client: $rlGameExe" -ForegroundColor Green
     } elseif (Test-Path $epicLauncherExe) {
-        Write-Host "     Epic Games Launcher 64-bit verified: $epicLauncherExe" -ForegroundColor Green
+        Write-Host "     Found Epic Games Launcher: $epicLauncherExe" -ForegroundColor Green
     } else {
         Write-Host "     Standard Epic Games root is present." -ForegroundColor DarkYellow
     }
 } else {
     Write-Host "[WARN] Epic Games directory not detected at default location: $epicGamesBase" -ForegroundColor DarkYellow
-    Write-Host "       Creating directory placeholder for input injection..." -ForegroundColor DarkYellow
+    Write-Host "       Creating directory structure placeholder..." -ForegroundColor DarkYellow
     New-Item -ItemType Directory -Path $epicGamesBase -Force | Out-Null
 }
 
 # ------------------------------------------------------------------------------
-# STEP 3: GENERATE LAUNCHER SOURCE CODE SCRIPT
+# STEP 4: GENERATE STANDALONE LAUNCHER CODE SCRIPT
 # ------------------------------------------------------------------------------
-Write-Host "[3/5] Generating standalone launcher script source..." -ForegroundColor Yellow
-
-$launcherScript = Join-Path $projectRoot "MasterEngineLauncher.ps1"
+Write-Host "[4/6] Generating standalone launcher script source..." -ForegroundColor Yellow
 
 $runnerScript = @'
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
@@ -220,46 +250,37 @@ $btnLaunch.Add_Click({
 [void]$form.ShowDialog()
 '@
 
-# Save runner script with UTF-8 encoding (Standard requirement for PS2EXE)
+# Save runner script with UTF-8 encoding (Strict requirement for PS2EXE)
 [System.IO.File]::WriteAllText($launcherScript, $runnerScript, [System.Text.Encoding]::UTF8)
-Write-Host "[OK] Standalone launcher script generated: $launcherScript" -ForegroundColor Green
+Write-Host "[OK] Standalone launcher source generated at $launcherScript" -ForegroundColor Green
 
 # ------------------------------------------------------------------------------
-# STEP 4: IDENTIFY AND IMPORT LOCAL PS2EXE MODULE
+# STEP 5: IDENTIFY LOCAL PS2EXE MODULE
 # ------------------------------------------------------------------------------
-Write-Host "[4/5] Identifying local ps2exe module..." -ForegroundColor Yellow
+Write-Host "[5/6] Identifying local PS2EXE module..." -ForegroundColor Yellow
 
 $ps2exeCmd = $null
 
-# Check if command is already loaded in the current PowerShell session
 if (Get-Command Invoke-ps2exe -ErrorAction SilentlyContinue) {
     $ps2exeCmd = "Invoke-ps2exe"
 } elseif (Get-Command ps2exe -ErrorAction SilentlyContinue) {
     $ps2exeCmd = "ps2exe"
 } else {
-    # Check if module is installed locally on the system
-    $installedModule = Get-Module -ListAvailable -Name ps2exe -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($installedModule) {
-        Import-Module $installedModule.Name -Force -ErrorAction SilentlyContinue
-    } else {
-        # Check standard user and system module paths
-        $localSearchPaths = @(
-            "$env:USERPROFILE\Documents\WindowsPowerShell\Modules\ps2exe\*\ps2exe.psm1",
-            "$env:ProgramFiles\WindowsPowerShell\Modules\ps2exe\*\ps2exe.psm1",
-            "$env:USERPROFILE\Documents\PowerShell\Modules\ps2exe\*\ps2exe.psm1",
-            "$env:LOCALAPPDATA\Microsoft\Windows\PowerShell\Modules\ps2exe\*\ps2exe.psm1"
-        )
+    $localSearchPaths = @(
+        "$env:USERPROFILE\Documents\WindowsPowerShell\Modules\ps2exe\*\ps2exe.psm1",
+        "$env:ProgramFiles\WindowsPowerShell\Modules\ps2exe\*\ps2exe.psm1",
+        "$env:USERPROFILE\Documents\PowerShell\Modules\ps2exe\*\ps2exe.psm1",
+        "$env:LOCALAPPDATA\Microsoft\Windows\PowerShell\Modules\ps2exe\*\ps2exe.psm1"
+    )
 
-        foreach ($pattern in $localSearchPaths) {
-            $file = Get-Item -Path $pattern -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($file) {
-                Import-Module $file.FullName -Force -ErrorAction SilentlyContinue
-                break
-            }
+    foreach ($pattern in $localSearchPaths) {
+        $file = Get-Item -Path $pattern -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($file) {
+            Import-Module $file.FullName -Force -ErrorAction SilentlyContinue
+            break
         }
     }
 
-    # Verify if module was imported
     if (Get-Command Invoke-ps2exe -ErrorAction SilentlyContinue) {
         $ps2exeCmd = "Invoke-ps2exe"
     } elseif (Get-Command ps2exe -ErrorAction SilentlyContinue) {
@@ -268,9 +289,9 @@ if (Get-Command Invoke-ps2exe -ErrorAction SilentlyContinue) {
 }
 
 if ($ps2exeCmd) {
-    Write-Host "[OK] Identified local PS2EXE module command: $ps2exeCmd" -ForegroundColor Green
+    Write-Host "[OK] Identified active PS2EXE command: $ps2exeCmd" -ForegroundColor Green
 } else {
-    Write-Host "[INFO] Local PS2EXE module not detected. Installing from PSGallery..." -ForegroundColor Yellow
+    Write-Host "[INFO] PS2EXE not pre-loaded; importing from PSGallery..." -ForegroundColor Yellow
     try {
         Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue | Out-Null
         Install-Module -Name ps2exe -Scope CurrentUser -Force -AllowClobber -ErrorAction SilentlyContinue
@@ -286,17 +307,16 @@ if ($ps2exeCmd) {
 }
 
 # ------------------------------------------------------------------------------
-# STEP 5: COMPILE STANDALONE EXECUTABLE WITHOUT INVALID PARAMETERS
+# STEP 6: COMPILE STANDALONE EXECUTABLE
 # ------------------------------------------------------------------------------
-$targetExe = Join-Path $projectRoot "MasterEngine.exe"
-Write-Host "[5/5] Compiling standalone executable: $targetExe..." -ForegroundColor Yellow
+Write-Host "[6/6] Compiling standalone executable: $targetExe..." -ForegroundColor Yellow
 
 $buildCompleted = $false
 
 if ($ps2exeCmd -and (Test-Path $launcherScript)) {
-    Write-Host "      Compiling via $ps2exeCmd using standard parameters..." -ForegroundColor Green
+    Write-Host "      Compiling via $ps2exeCmd with standard parameters..." -ForegroundColor Green
     try {
-        # Standard parameters universally supported by all ps2exe releases
+        # Standard parameters supported by all PS2EXE versions
         & $ps2exeCmd -inputFile $launcherScript `
                      -outputFile $targetExe `
                      -noConsole `
@@ -325,9 +345,9 @@ if ($ps2exeCmd -and (Test-Path $launcherScript)) {
     }
 }
 
-# Reliable fallback using Microsoft native C# compiler (csc.exe)
+# Native compiler fallback using Microsoft csc.exe
 if (-not $buildCompleted -or -not (Test-Path $targetExe)) {
-    Write-Host "      [INFO] Executing built-in Microsoft csc.exe compiler fallback..." -ForegroundColor Yellow
+    Write-Host "      [INFO] Executing Microsoft csc.exe compiler fallback..." -ForegroundColor Yellow
     $csc = "$env:SystemRoot\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
     if (-not (Test-Path $csc)) {
         $csc = "$env:SystemRoot\Microsoft.NET\Framework\v4.0.30319\csc.exe"
@@ -338,15 +358,15 @@ if (-not $buildCompleted -or -not (Test-Path $targetExe)) {
         Invoke-WebRequest -Uri "https://ais-dev-7xgtk3pserxiaohmdbn4eh-174192677837.europe-west1.run.app/api/program-cs/download" -OutFile $csProgram -UseBasicParsing -TimeoutSec 15
     }
 
-    $compilerArgs = "/target:winexe /platform:anycpu /optimize+ /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:`"$targetExe`" `"$csProgram`""
-    $process = Start-Process -FilePath $csc -ArgumentList $compilerArgs -Wait -NoNewWindow -PassThru
+    $cArgs = "/target:winexe /platform:anycpu /optimize+ /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:`"$targetExe`" `"$csProgram`""
+    $process = Start-Process -FilePath $csc -ArgumentList $cArgs -Wait -NoNewWindow -PassThru
     if ($process.ExitCode -eq 0 -and (Test-Path $targetExe)) {
         $buildCompleted = $true
     }
 }
 
 # ------------------------------------------------------------------------------
-# STEP 6: VERIFY BUILD AND LAUNCH
+# VERIFICATION AND EXECUTION
 # ------------------------------------------------------------------------------
 if (Test-Path $targetExe) {
     Write-Host "==========================================================" -ForegroundColor Cyan
@@ -356,6 +376,6 @@ if (Test-Path $targetExe) {
 
     Start-Process -FilePath $targetExe
 } else {
-    Write-Host "[ERROR] Compilation failed: $targetExe was not created." -ForegroundColor Red
+    Write-Host "[ERROR] Compilation failed: $targetExe was not generated." -ForegroundColor Red
     Exit 1
 }
