@@ -22,7 +22,8 @@ import {
   TrendingUp,
   Gauge,
   BarChart3,
-  Sliders
+  Sliders,
+  Cloud
 } from 'lucide-react';
 import { MacroConfig } from '../types';
 import { PhysicsProfiler } from './PhysicsProfiler';
@@ -30,6 +31,7 @@ import { HardwareLatencyCalibrator } from './HardwareLatencyCalibrator';
 import { MacroBenchmarkRunner } from './MacroBenchmarkRunner';
 import { SwitchProfile } from './SwitchProfile';
 import { MacroPerformanceDashboard } from './MacroPerformanceDashboard';
+import { CloudLatencyMonitor } from './CloudLatencyMonitor';
 
 interface LatencyLabProps {
   config: MacroConfig;
@@ -49,8 +51,8 @@ interface BenchmarkRecord {
 }
 
 export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }) => {
-  // Main Sub-Tab switcher: 'hardware' | 'calibrator' | 'dashboard' | 'switches' | 'benchmark' | 'curve' | 'profiler'
-  const [activeTab, setActiveTab] = useState<'hardware' | 'calibrator' | 'dashboard' | 'switches' | 'benchmark' | 'curve' | 'profiler'>('hardware');
+  // Main Sub-Tab switcher: 'hardware' | 'cloud' | 'calibrator' | 'dashboard' | 'switches' | 'benchmark' | 'curve' | 'profiler'
+  const [activeTab, setActiveTab] = useState<'hardware' | 'cloud' | 'calibrator' | 'dashboard' | 'switches' | 'benchmark' | 'curve' | 'profiler'>('hardware');
 
   // Key press tester state (Curve view)
   const [testLog, setTestLog] = useState<Array<{ key: string; durationMs: number; intervalMs?: number; timestamp: string }>>([]);
@@ -416,6 +418,18 @@ export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }
           >
             <Cpu className="w-3.5 h-3.5" />
             <span>Hardware Monitor</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('cloud')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+              activeTab === 'cloud'
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Cloud className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Cloud Latency Monitor</span>
           </button>
 
           <button
@@ -987,6 +1001,11 @@ export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }
             </div>
           </div>
         </div>
+      )}
+
+      {/* VIEW: CLOUD LATENCY MONITOR (SERVER API) */}
+      {activeTab === 'cloud' && (
+        <CloudLatencyMonitor config={config} />
       )}
 
       {/* VIEW: HARDWARE LATENCY CALIBRATOR */}
