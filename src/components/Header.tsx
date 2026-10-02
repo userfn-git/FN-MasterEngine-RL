@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Flame, Zap, Shield, FileCode, Sliders, Terminal, Cpu, Sparkles, Volume2, VolumeX, Download, Cloud, Radio, Globe, ExternalLink, X, Layers, Compass, Settings, Info, BookOpen } from 'lucide-react';
+import { Flame, Zap, Shield, FileCode, Sliders, Terminal, Cpu, Sparkles, Volume2, VolumeX, Download, Cloud, Radio, Globe, ExternalLink, X, Layers, Compass, Settings, Info, BookOpen, Check } from 'lucide-react';
 import { BackgroundUpdateChecker } from './BackgroundUpdateChecker';
 
 interface HeaderProps {
@@ -12,6 +12,7 @@ interface HeaderProps {
   audioDrillActive: boolean;
   setAudioDrillActive: (active: boolean) => void;
   onExportAll: () => void;
+  onSyncGHub?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,8 +25,10 @@ export const Header: React.FC<HeaderProps> = ({
   audioDrillActive,
   setAudioDrillActive,
   onExportAll,
+  onSyncGHub,
 }) => {
   const [portalsModalOpen, setPortalsModalOpen] = useState<boolean>(false);
+  const [syncedGHub, setSyncedGHub] = useState<boolean>(false);
 
   const officialLinks = [
     {
@@ -181,6 +184,74 @@ export const Header: React.FC<HeaderProps> = ({
             currentVersion="v4.0.2"
             onOpenSettingsTab={() => setActiveTab('settings')}
           />
+
+          {/* Sync to G-Hub Button with Descriptive Hover Tooltip */}
+          <div className="relative group flex items-center">
+            <button
+              onClick={() => {
+                if (onSyncGHub) onSyncGHub();
+                setSyncedGHub(true);
+                setTimeout(() => setSyncedGHub(false), 2500);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all shadow-sm active:scale-95 border ${
+                syncedGHub
+                  ? 'bg-purple-600 border-purple-400 text-white shadow-purple-500/30'
+                  : 'bg-purple-600/20 hover:bg-purple-600/30 border-purple-500/40 text-purple-300 hover:text-purple-200'
+              }`}
+              title="Sync to Logitech G-Hub: Exports formatted JSON profile with embedded Lua script"
+              aria-label="Sync to Logitech G-Hub JSON Profile"
+            >
+              {syncedGHub ? (
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+              )}
+              <span>{syncedGHub ? 'G-HUB PROFILE SYNCED!' : 'SYNC TO G-HUB'}</span>
+              <span className="text-[10px] bg-purple-950 text-purple-300 border border-purple-500/40 px-1 py-0.2 rounded font-mono hidden md:inline">
+                JSON
+              </span>
+            </button>
+
+            {/* Hover Tooltip Popover Explaining G-Hub JSON Profile */}
+            <div className="absolute right-0 top-full mt-2 hidden group-hover:block z-50 w-72 bg-slate-900 border border-purple-500/40 rounded-xl p-3.5 shadow-2xl shadow-black/80 backdrop-blur-md pointer-events-none animate-fadeIn text-left">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="font-['Chakra_Petch'] font-bold text-xs text-white uppercase tracking-wider">
+                    Logitech G-Hub Profile
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono bg-purple-950 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-bold">
+                  IMPORT READY
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-300 font-['Rajdhani'] mb-2.5 leading-snug">
+                Exports your active configuration, macro bindings, and compiled Lua engine as a formatted Logitech G-Hub JSON profile (<code className="text-purple-300">.json</code>).
+              </p>
+
+              <div className="space-y-1.5 text-[10px] font-mono bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-slate-400">
+                <div className="text-purple-400 font-bold">How to import into Logitech G HUB:</div>
+                <div className="flex items-start gap-1.5">
+                  <span className="text-purple-400 font-bold">1.</span>
+                  <span>Open Logitech G HUB &gt; Profiles</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="text-purple-400 font-bold">2.</span>
+                  <span>Click &quot;Import Profile&quot; &amp; select this JSON</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="text-purple-400 font-bold">3.</span>
+                  <span>Auto-loads button bindings &amp; Lua script!</span>
+                </div>
+              </div>
+
+              <div className="mt-2.5 pt-2 border-t border-slate-800/80 text-[10px] text-purple-300/80 flex items-center justify-between">
+                <span>Format: .json profile</span>
+                <span>Logitech G-Hub v2026.x</span>
+              </div>
+            </div>
+          </div>
 
           {/* Export Bundle with Descriptive Hover Tooltip & Helper Text */}
           <div className="relative group flex items-center">

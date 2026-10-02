@@ -141,6 +141,90 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
+  // Export Logitech G-Hub Formatted Profile JSON
+  const handleSyncGHub = () => {
+    const luaScript = generateLuaScript(macroConfig);
+    const profileJson = {
+      applicationId: 'com.psyonix.rocketleague',
+      applicationPath: 'C:\\Program Files\\Epic Games\\rocketleague\\Binaries\\Win64\\RocketLeague.exe',
+      name: `Rocket League - FN Master Engine (${activePreset.toUpperCase()})`,
+      version: '4.0.2',
+      profileId: `fn-masterengine-${Date.now()}`,
+      isDefault: false,
+      isActive: true,
+      metadata: {
+        engine: 'FN-MasterEngine-RL',
+        author: 'FN Pro Space',
+        exportDate: new Date().toISOString(),
+        ghubVersion: '2026.3.1004',
+        preset: activePreset,
+      },
+      settings: {
+        reportRate: 1000,
+        dpi: 800,
+        internalDeadzone: macroConfig.internalDeadzone,
+        dodgeDeadzone: macroConfig.dodgeDeadzone,
+        groundSensitivity: macroConfig.groundSense,
+        aerialSensitivity: macroConfig.aerialSense,
+        curveExponent: macroConfig.curveExponent,
+        hardwareJitter: macroConfig.hardwareJitter,
+        timings: {
+          speedflipJump1: macroConfig.speedflipJump1,
+          speedflipJump2Delay: macroConfig.speedflipJump2Delay,
+          speedflipJump2: macroConfig.speedflipJump2,
+          speedflipCancelHold: macroConfig.speedflipCancelHold,
+          fastAerialJump1: macroConfig.fastAerialJump1,
+          fastAerialJump2Delay: macroConfig.fastAerialJump2Delay,
+          fastAerialCancelDelay: macroConfig.fastAerialCancelDelay,
+          chaindashJump1: macroConfig.chaindashJump1,
+          chaindashPause: macroConfig.chaindashPause,
+        },
+      },
+      scripts: [
+        {
+          id: 'fn-rl-script-master',
+          name: 'RocketLeague_MasterEngine.lua',
+          source: luaScript,
+          syncEnabled: true,
+          lastModified: new Date().toISOString(),
+        },
+      ],
+      assignments: [
+        {
+          cardId: 'fn-speedflip-card',
+          slotId: `mouse-button-${macroConfig.mouseSpeedflip}`,
+          actionId: 'lua-speedflip-trigger',
+          label: `FN Speedflip (MB${macroConfig.mouseSpeedflip})`,
+        },
+        {
+          cardId: 'fn-chaindash-card',
+          slotId: `mouse-button-${macroConfig.mouseChaindash}`,
+          actionId: 'lua-chaindash-trigger',
+          label: `FN Chain Dash (MB${macroConfig.mouseChaindash})`,
+        },
+        {
+          cardId: 'fn-toggle-card',
+          slotId: `mouse-button-${macroConfig.mouseToggle}`,
+          actionId: 'lua-engine-toggle',
+          label: 'FN Engine Toggle (Middle Mouse)',
+        },
+      ],
+      deviceTypes: ['mouse', 'keyboard', 'headset'],
+    };
+
+    const blob = new Blob([JSON.stringify(profileJson, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `RocketLeague_FN_MasterEngine_GHub_Profile_${activePreset}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col font-['Rajdhani'] selection:bg-cyan-500/30 selection:text-cyan-200">
       {/* Navigation Header */}
@@ -154,6 +238,7 @@ export default function App() {
         audioDrillActive={audioDrillActive}
         setAudioDrillActive={setAudioDrillActive}
         onExportAll={handleExportAll}
+        onSyncGHub={handleSyncGHub}
       />
 
       {/* Main Content Area */}
