@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Flame, Zap, Shield, FileCode, Sliders, Terminal, Cpu, Sparkles, Volume2, VolumeX, Download, Cloud, Radio, Globe, ExternalLink, X, Layers, Compass, Settings } from 'lucide-react';
+import { Flame, Zap, Shield, FileCode, Sliders, Terminal, Cpu, Sparkles, Volume2, VolumeX, Download, Cloud, Radio, Globe, ExternalLink, X, Layers, Compass, Settings, Info } from 'lucide-react';
 import { BackgroundUpdateChecker } from './BackgroundUpdateChecker';
 
 interface HeaderProps {
@@ -181,15 +181,83 @@ export const Header: React.FC<HeaderProps> = ({
             onOpenSettingsTab={() => setActiveTab('settings')}
           />
 
-          {/* Export Bundle */}
-          <button
-            onClick={onExportAll}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono transition-all"
-            title="Export all scripts (Lua, PowerShell, TAInput.ini) in one click"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">ZIP / EXPORT</span>
-          </button>
+          {/* Export Bundle with Descriptive Hover Tooltip & Helper Text */}
+          <div className="relative group flex items-center">
+            <button
+              onClick={onExportAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600/25 hover:bg-cyan-500/35 border border-cyan-500/50 text-cyan-200 text-xs font-mono font-bold transition-all shadow-sm hover:shadow-cyan-500/20 active:scale-95"
+              aria-label="Export All Engine Files Bundle"
+            >
+              <Download className="w-3.5 h-3.5 text-cyan-400" />
+              <span>EXPORT ALL</span>
+              <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-500/40 px-1 py-0.2 rounded font-mono hidden md:inline">
+                4-in-1
+              </span>
+            </button>
+
+            {/* Information Helper Icon Trigger */}
+            <div
+              className="cursor-help text-slate-400 hover:text-cyan-400 transition-colors p-1 ml-0.5"
+              title="Bundles Lua script, TAInput.ini, TASystemSettings.ini, and PowerShell Win32 hooks"
+            >
+              <Info className="w-3.5 h-3.5" />
+            </div>
+
+            {/* Hover Tooltip Popover Explaining Bundled Files */}
+            <div className="absolute right-0 top-full mt-2 hidden group-hover:block z-50 w-72 bg-slate-900 border border-cyan-500/40 rounded-xl p-3.5 shadow-2xl shadow-black/80 backdrop-blur-md pointer-events-none animate-fadeIn text-left">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Download className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="font-['Chakra_Petch'] font-bold text-xs text-white uppercase tracking-wider">
+                    Full Engine Bundle
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded font-bold">
+                  4 FILES BUNDLED
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-300 font-['Rajdhani'] mb-2.5 leading-snug">
+                Exports all essential Rocket League configuration & script files into a single deployable package:
+              </p>
+
+              <ul className="space-y-1.5 text-[11px] font-mono">
+                <li className="flex items-start gap-2 bg-slate-950/70 p-1.5 rounded border border-slate-800/80">
+                  <span className="text-cyan-400 font-bold shrink-0">1.</span>
+                  <div>
+                    <strong className="text-slate-200 block text-[10px]">Logitech G-HUB Lua Script</strong>
+                    <span className="text-[10px] text-slate-400">RocketLeague_MasterEngine.lua (0.00ms)</span>
+                  </div>
+                </li>
+                <li className="flex items-start gap-2 bg-slate-950/70 p-1.5 rounded border border-slate-800/80">
+                  <span className="text-cyan-400 font-bold shrink-0">2.</span>
+                  <div>
+                    <strong className="text-slate-200 block text-[10px]">TAInput.ini Bindings</strong>
+                    <span className="text-[10px] text-slate-400">Rocket League raw input overrides</span>
+                  </div>
+                </li>
+                <li className="flex items-start gap-2 bg-slate-950/70 p-1.5 rounded border border-slate-800/80">
+                  <span className="text-cyan-400 font-bold shrink-0">3.</span>
+                  <div>
+                    <strong className="text-slate-200 block text-[10px]">TASystemSettings.ini</strong>
+                    <span className="text-[10px] text-slate-400">120Hz/240Hz physics tick rate optimization</span>
+                  </div>
+                </li>
+                <li className="flex items-start gap-2 bg-slate-950/70 p-1.5 rounded border border-slate-800/80">
+                  <span className="text-cyan-400 font-bold shrink-0">4.</span>
+                  <div>
+                    <strong className="text-slate-200 block text-[10px]">PowerShell Win32 Hooks</strong>
+                    <span className="text-[10px] text-slate-400">Low-level SetWindowsHookEx C# driver</span>
+                  </div>
+                </li>
+              </ul>
+
+              <div className="mt-2.5 pt-2 border-t border-slate-800/80 text-[10px] text-cyan-300/80 flex items-center justify-between">
+                <span>Format: .txt / All-in-One</span>
+                <span>Ready to deploy</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
