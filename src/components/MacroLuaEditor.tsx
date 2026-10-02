@@ -31,13 +31,15 @@ import {
   Undo2,
   BookOpen,
   HardDrive,
-  Save
+  Save,
+  MousePointer
 } from 'lucide-react';
 import { MacroConfig } from '../types';
 import { generateLuaScript } from '../data/defaultConfig';
 import { MacroValidator } from '../utils/MacroValidator';
 import { MacroValidatorPanel } from './MacroValidatorPanel';
 import { MacroLibrary } from './MacroLibrary';
+import { HardwareLayoutVisualizer } from './HardwareLayoutVisualizer';
 
 export const AUTOSAVE_STORAGE_KEY = 'fn_masterengine_macro_config_autosave';
 export const AUTOSAVE_META_KEY = 'fn_masterengine_macro_config_autosave_meta';
@@ -61,7 +63,7 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
   const [copiedPath, setCopiedPath] = useState<boolean>(false);
   const [linkedGHub, setLinkedGHub] = useState<boolean>(false);
   const [showGuide, setShowGuide] = useState<boolean>(false);
-  const [activeSubTab, setActiveSubTab] = useState<'editor' | 'bindings' | 'math' | 'library'>('bindings');
+  const [activeSubTab, setActiveSubTab] = useState<'editor' | 'bindings' | 'math' | 'library' | 'mouse'>('bindings');
   const [exportWarningModal, setExportWarningModal] = useState<boolean>(false);
   const [pendingAction, setPendingAction] = useState<'copy' | 'download' | 'link' | null>(null);
 
@@ -682,6 +684,15 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
               Key Bindings
             </button>
             <button
+              onClick={() => setActiveSubTab('mouse')}
+              className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1 ${
+                activeSubTab === 'mouse' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <MousePointer className="w-3.5 h-3.5" />
+              <span>G502X Visualizer</span>
+            </button>
+            <button
               onClick={() => setActiveSubTab('math')}
               className={`flex-1 py-1.5 rounded transition-all ${
                 activeSubTab === 'math' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
@@ -711,10 +722,19 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
           {/* Bindings Tab */}
           {activeSubTab === 'bindings' && (
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4">
-              <h3 className="font-['Chakra_Petch'] font-bold text-sm text-slate-200 flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-cyan-400" />
-                Mouse & G-Key Bindings
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-['Chakra_Petch'] font-bold text-sm text-slate-200 flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-cyan-400" />
+                  Mouse & G-Key Bindings
+                </h3>
+                <button
+                  onClick={() => setActiveSubTab('mouse')}
+                  className="px-2 py-0.5 rounded bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 text-[11px] font-bold transition-colors flex items-center gap-1"
+                >
+                  <MousePointer className="w-3 h-3" />
+                  <span>Inspect G502X Mouse</span>
+                </button>
+              </div>
 
               <div className="space-y-3 text-xs font-mono">
                 <div className="flex items-center justify-between">
@@ -1020,6 +1040,16 @@ export const MacroLuaEditor: React.FC<MacroLuaEditorProps> = ({ config, onUpdate
                   />
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* G502X Hardware Layout Visualizer Tab */}
+          {activeSubTab === 'mouse' && (
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4">
+              <HardwareLayoutVisualizer
+                config={config}
+                onUpdateConfig={(newConfig) => updateConfigWithPulse(newConfig)}
+              />
             </div>
           )}
 
