@@ -1,9 +1,9 @@
 # ==============================================================================
-# FN ROCKET LEAGUE MASTER-ENGINE: PS2EXE STANDALONE EXECUTABLE BUILDER
-# Script: build-executable.ps1
+# FN ROCKET LEAGUE MASTER-ENGINE: STANDALONE EXECUTABLE BUILDER
+# File: build-executable.ps1
 # Target: C:\FN-MasterEngine-RL\FN_RocketLeague_MasterEngine.exe
-# Epic Games Target: C:\Program Files\Epic Games (64-bit standard, zero x86)
-# Encoding: Strict 100% ASCII Only (No unicode, no localized comments)
+# Base Epic Games Path: C:\Program Files\Epic Games (64-bit standard)
+# Encoding: Strict 100% ASCII Only (Zero Unicode / No Non-English Characters)
 # ==============================================================================
 
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
@@ -30,26 +30,68 @@ $configDir = Join-Path $projectRoot "config"
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "   FN ROCKET LEAGUE MASTER-ENGINE: PS2EXE COMPILER        " -ForegroundColor Green
 Write-Host "   Directory: $projectRoot                                " -ForegroundColor Yellow
-Write-Host "   Epic Games: C:\Program Files\Epic Games                " -ForegroundColor Yellow
+Write-Host "   Target: FN_RocketLeague_MasterEngine.exe               " -ForegroundColor Yellow
 Write-Host "==========================================================" -ForegroundColor Cyan
 
-# 1. Sync Base Resources & Local Snapshot
+# 1. Clean previous build artifacts using standard PowerShell commands
+$targetExe = Join-Path $projectRoot "FN_RocketLeague_MasterEngine.exe"
+$legacyExe = Join-Path $projectRoot "MasterEngine.exe"
+$launcherScript = Join-Path $projectRoot "EngineLauncher.ps1"
+
+Write-Host "[1/5] Removing stale build artifacts..." -ForegroundColor Yellow
+
+$oldFiles = @(
+    $targetExe,
+    $legacyExe,
+    $launcherScript,
+    (Join-Path $projectRoot "*.pdb"),
+    (Join-Path $projectRoot "*.tmp")
+)
+
+foreach ($f in $oldFiles) {
+    if (Test-Path $f) {
+        Remove-Item -Path $f -Force -Recurse -ErrorAction SilentlyContinue
+        Write-Host "      Cleaned: $f" -ForegroundColor DarkGray
+    }
+}
+Write-Host "[OK] Clean build workspace ready." -ForegroundColor Green
+
+# 2. Logical validation of Epic Games path
+$epicGamesBase = "C:\Program Files\Epic Games"
+$epicLauncher = Join-Path $epicGamesBase "Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe"
+$gameBinary = Join-Path $epicGamesBase "rocketleague\Binaries\Win64\RocketLeague.exe"
+
+Write-Host "[2/5] Validating Epic Games installation..." -ForegroundColor Yellow
+
+if (Test-Path $epicGamesBase) {
+    Write-Host "[OK] Detected Epic Games directory: $epicGamesBase" -ForegroundColor Green
+    if (Test-Path $gameBinary) {
+        Write-Host "     Found Rocket League 64-bit client: $gameBinary" -ForegroundColor Green
+    } elseif (Test-Path $epicLauncher) {
+        Write-Host "     Found Epic Games Launcher: $epicLauncher" -ForegroundColor Green
+    }
+} else {
+    Write-Host "[WARN] Epic Games directory not detected at standard location: $epicGamesBase" -ForegroundColor DarkYellow
+    Write-Host "       Ensuring placeholder folder exists for localized configuration injection..." -ForegroundColor DarkYellow
+    New-Item -ItemType Directory -Path $epicGamesBase -Force | Out-Null
+}
+
+# 3. Synchronize core resources & local database snapshot
 $baseUrl = "https://ais-dev-7xgtk3pserxiaohmdbn4eh-174192677837.europe-west1.run.app"
-Write-Host "[1/4] Synchronizing resources and database snapshot..." -ForegroundColor Yellow
+Write-Host "[3/5] Synchronizing resources and database snapshot..." -ForegroundColor Yellow
 
 try {
     Invoke-WebRequest -Uri "$baseUrl/api/backend-app/download" -OutFile (Join-Path $backendDir "app.py") -UseBasicParsing -TimeoutSec 15
     Invoke-WebRequest -Uri "$baseUrl/api/python-daemon/download" -OutFile (Join-Path $backendDir "engine_daemon.py") -UseBasicParsing -TimeoutSec 15
     $snapshot = Invoke-RestMethod -Uri "$baseUrl/api/github/sqlite-export" -UseBasicParsing -TimeoutSec 15
     $snapshot | ConvertTo-Json -Depth 10 | Out-File (Join-Path $dataDir "fn_master_engine_snapshot.json") -Encoding ascii -Force
-    Write-Host "[OK] Base resources and database snapshot synchronized." -ForegroundColor Green
+    Write-Host "[OK] Resources and database snapshot synchronized." -ForegroundColor Green
 } catch {
     Write-Host "[WARN] Remote snapshot sync skipped. Using local offline cache." -ForegroundColor DarkYellow
 }
 
-# 2. Write the Clean Standalone WinForms Runner Script (ASCII only)
-$launcherScript = Join-Path $projectRoot "EngineLauncher.ps1"
-$targetExe = Join-Path $projectRoot "FN_RocketLeague_MasterEngine.exe"
+# 4. Generate clean standalone WinForms launcher script (ASCII only)
+Write-Host "[4/5] Writing standalone launcher script..." -ForegroundColor Yellow
 
 $scriptContent = @'
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
@@ -185,16 +227,15 @@ $btnLaunch.Add_Click({
 [System.IO.File]::WriteAllText($launcherScript, $scriptContent, [System.Text.Encoding]::ASCII)
 Write-Host "[OK] Launcher script written: $launcherScript" -ForegroundColor Green
 
-# 3. Verify PS2EXE Module Availability
-Write-Host "[2/4] Checking PS2EXE compilation module..." -ForegroundColor Yellow
+# 5. Compile standalone executable via PS2EXE or native compiler fallback
+Write-Host "[5/5] Compiling standalone executable..." -ForegroundColor Yellow
 
 $ps2exeReady = $false
 if (Get-Command ps2exe -ErrorAction SilentlyContinue) {
     $ps2exeReady = $true
 } else {
     try {
-        Write-Host "Installing PS2EXE from PSGallery for current user..." -ForegroundColor Yellow
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Write-Host "      Installing PS2EXE from PSGallery for CurrentUser..." -ForegroundColor Yellow
         Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue | Out-Null
         Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue | Out-Null
         Install-Module -Name ps2exe -Scope CurrentUser -Force -AllowClobber -ErrorAction SilentlyContinue
@@ -203,15 +244,12 @@ if (Get-Command ps2exe -ErrorAction SilentlyContinue) {
             $ps2exeReady = $true
         }
     } catch {
-        Write-Host "[WARN] Automatic PS2EXE install warning: $_" -ForegroundColor DarkYellow
+        Write-Host "      [WARN] Automatic PS2EXE install warning: $_" -ForegroundColor DarkYellow
     }
 }
 
-# 4. Compile Standalone Executable via PS2EXE or Fallback to Native Microsoft csc.exe
-Write-Host "[3/4] Compiling standalone executable: $targetExe" -ForegroundColor Yellow
-
 if ($ps2exeReady) {
-    Write-Host "Compiling via PS2EXE cmdlet..." -ForegroundColor Green
+    Write-Host "      Compiling via PS2EXE cmdlet..." -ForegroundColor Green
     ps2exe -inputFile $launcherScript `
            -outputFile $targetExe `
            -noConsole `
@@ -223,7 +261,7 @@ if ($ps2exeReady) {
            -runtime40 `
            -x64
 } else {
-    Write-Host "[INFO] PS2EXE not found; compiling standalone native executable with Microsoft csc.exe..." -ForegroundColor Yellow
+    Write-Host "      [INFO] PS2EXE not loaded; compiling standalone native executable with Microsoft csc.exe..." -ForegroundColor Yellow
     $csc = "$env:SystemRoot\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
     if (-not (Test-Path $csc)) {
         $csc = "$env:SystemRoot\Microsoft.NET\Framework\v4.0.30319\csc.exe"
@@ -238,14 +276,13 @@ if ($ps2exeReady) {
     Start-Process -FilePath $csc -ArgumentList $cscArgs -Wait -NoNewWindow
 }
 
-# 5. Output Verification
+# Verify and execute
 if (Test-Path $targetExe) {
     Write-Host "==========================================================" -ForegroundColor Cyan
     Write-Host "   SUCCESS: STANDALONE EXE CREATED SUCCESSFULLY!          " -ForegroundColor Green
     Write-Host "   Executable: $targetExe                                 " -ForegroundColor Yellow
     Write-Host "==========================================================" -ForegroundColor Cyan
 
-    Write-Host "[4/4] Launching standalone application..." -ForegroundColor Green
     Start-Process -FilePath $targetExe
 } else {
     Write-Host "[ERROR] Compilation failed: $targetExe not created." -ForegroundColor Red

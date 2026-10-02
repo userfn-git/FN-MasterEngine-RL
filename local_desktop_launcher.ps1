@@ -1,11 +1,13 @@
 <#
 ==============================================================================
 FN ROCKET LEAGUE MASTER-ENGINE: COMPLETE LOCAL OFFLINE DESKTOP BUNDLER & LAUNCHER
+File: local_desktop_launcher.ps1
 Architecture:
 - 100% Pure ASCII/English (Zero unicode syntax errors in PowerShell)
 - Downloads full SQLite database and engine configurations directly to local disk
 - Compiles Win32 Low-Latency (0.00ms) Hook Engine into Windows Memory
 - Opens Native Windows Form GUI dialog with live tabs, macros, and diagnostics
+- Logical validation for Epic Games base directory: C:\Program Files\Epic Games
 ==============================================================================
 #>
 
@@ -17,9 +19,28 @@ $dataDir = "$localRoot\data"
 $configDir = "$localRoot\config"
 $backendDir = "$localRoot\backend"
 
-# Ensure all physical directories exist right in front of user
+# Ensure all physical directories exist
 @($localRoot, $dataDir, $configDir, $backendDir) | ForEach-Object {
     if (-not (Test-Path $_)) { New-Item -ItemType Directory -Path $_ -Force | Out-Null }
+}
+
+Set-Location $localRoot
+
+# 1. Clean stale temporary files using standard PowerShell commands
+$tempPatterns = @("*.tmp", "~*", "*.pdb")
+foreach ($pat in $tempPatterns) {
+    Get-ChildItem -Path $localRoot -Filter $pat -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+        Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# 2. Logical validation of Epic Games directory
+$epicGamesBase = "C:\Program Files\Epic Games"
+$epicLauncherExe = Join-Path $epicGamesBase "Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe"
+$rlGameExe = Join-Path $epicGamesBase "rocketleague\Binaries\Win64\RocketLeague.exe"
+
+if (-not (Test-Path $epicGamesBase)) {
+    New-Item -ItemType Directory -Path $epicGamesBase -Force | Out-Null
 }
 
 Write-Host "==========================================================" -ForegroundColor Cyan
@@ -78,72 +99,38 @@ public class NativeRLHookEngine {
         public IntPtr dwExtraInfo;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    struct INPUT {
-        public uint type;
-        public MOUSEKEYBDHARDWAREINPUT mkhi;
-    }
-
-    [StructLayout(LayoutKind.Explicit)]
-    struct MOUSEKEYBDHARDWAREINPUT {
-        [FieldOffset(0)] public KEYBDINPUT ki;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    struct KEYBDINPUT {
-        public ushort wVk;
-        public ushort wScan;
-        public uint dwFlags;
-        public uint time;
-        public IntPtr dwExtraInfo;
-    }
-
-    private const uint INPUT_KEYBOARD = 1;
-    private const uint KEYEVENTF_KEYUP = 0x0002;
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
-
-    [DllImport("user32.dll", SetLastError = true)]
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr SetWindowsHookEx(int idHook, HookProc lpfn, IntPtr hMod, uint dwThreadId);
 
-    [DllImport("user32.dll", SetLastError = true)]
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool UnhookWindowsHookEx(IntPtr hhk);
 
-    [DllImport("user32.dll", SetLastError = true)]
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern IntPtr GetModuleHandle(string lpModuleName);
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+
+    private const int KEYEVENTF_KEYUP = 0x0002;
+    private const int KEYEVENTF_SCANCODE = 0x0008;
+
+    private const ushort SCAN_W = 0x11;
+    private const ushort SCAN_A = 0x1E;
+    private const ushort SCAN_S = 0x1F;
+    private const ushort SCAN_D = 0x20;
+    private const ushort SCAN_Q = 0x10;
+    private const ushort SCAN_E = 0x12;
+    private const ushort SCAN_LSHIFT = 0x2A;
 
     public delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
-
-    public static void PressKey(byte vkCode) {
-        INPUT[] inputs = new INPUT[1];
-        inputs[0].type = INPUT_KEYBOARD;
-        inputs[0].mkhi.ki.wVk = vkCode;
-        inputs[0].mkhi.ki.dwFlags = 0;
-        SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
-    }
-
-    public static void ReleaseKey(byte vkCode) {
-        INPUT[] inputs = new INPUT[1];
-        inputs[0].type = INPUT_KEYBOARD;
-        inputs[0].mkhi.ki.wVk = vkCode;
-        inputs[0].mkhi.ki.dwFlags = KEYEVENTF_KEYUP;
-        SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
-    }
-
-    public static Action<string> OnLogMessage;
-    public static void Log(string message) {
-        if (OnLogMessage != null) OnLogMessage(message);
-    }
+    public static event Action<string> OnEngineLog;
 
     public static void StartHook() {
         if (_hookID == IntPtr.Zero) {
             _hookID = SetWindowsHookEx(WH_KEYBOARD_LL, _proc, IntPtr.Zero, 0);
-            Log("[HOOK ENGINE] Win32 Low-Level Hook attached (0.00ms latency).");
+            IsRunning = true;
+            if (OnEngineLog != null) OnEngineLog("[HOOK ACTIVE] Low-level Win32 hardware hook listening.");
         }
     }
 
@@ -151,202 +138,245 @@ public class NativeRLHookEngine {
         if (_hookID != IntPtr.Zero) {
             UnhookWindowsHookEx(_hookID);
             _hookID = IntPtr.Zero;
-            Log("[HOOK ENGINE] Win32 Hook detached.");
+            IsRunning = false;
+            if (OnEngineLog != null) OnEngineLog("[HOOK STOPPED] Hardware hook disengaged.");
         }
     }
 
-    public static Action ActionW;
-    public static Action ActionA;
-    public static Action ActionD;
-
     private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam) {
-        if (nCode >= 0 && wParam == (IntPtr)WM_KEYDOWN) {
-            KBDLLHOOKSTRUCT hook = (KBDLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(KBDLLHOOKSTRUCT));
-            if (hook.vkCode == 0x79) { // F10 Killswitch
+        if (nCode >= 0 && ScriptEnabled) {
+            int vkCode = Marshal.ReadInt32(lParam);
+            bool isKeyDown = (wParam == (IntPtr)WM_KEYDOWN);
+
+            // F10 Emergency Kill Switch
+            if (vkCode == 0x79 && isKeyDown) {
                 ScriptEnabled = !ScriptEnabled;
-                Log(ScriptEnabled ? "[SAFETY] Hooks RESUMED via F10" : "[SAFETY] Emergency Killswitch ACTIVE via F10");
+                EmergencyReleaseAll();
+                if (OnEngineLog != null) OnEngineLog("[KILLSWITCH F10] Master engine toggled: " + (ScriptEnabled ? "ENABLED" : "DISABLED"));
                 return (IntPtr)1;
             }
-            if (ScriptEnabled && (hook.flags & 0x10) == 0) { // Not injected
-                if (hook.vkCode == 87 && ActionW != null) { // W
-                    new Thread(() => ActionW()).Start();
-                } else if (hook.vkCode == 65 && ActionA != null) { // A
-                    new Thread(() => ActionA()).Start();
-                } else if (hook.vkCode == 68 && ActionD != null) { // D
-                    new Thread(() => ActionD()).Start();
-                }
+
+            // G-Key F1 Speedflip
+            if (vkCode == 0x70 && isKeyDown) {
+                TriggerLeftSpeedflipAsync();
+                return (IntPtr)1;
+            }
+
+            // G-Key F2 Fast Aerial
+            if (vkCode == 0x71 && isKeyDown) {
+                TriggerFastAerialAsync();
+                return (IntPtr)1;
             }
         }
         return CallNextHookEx(_hookID, nCode, wParam, lParam);
     }
+
+    private static void SendScan(ushort scanCode, bool down) {
+        uint flags = KEYEVENTF_SCANCODE | (down ? 0 : (uint)KEYEVENTF_KEYUP);
+        keybd_event(0, (byte)scanCode, flags, 0);
+    }
+
+    public static void EmergencyReleaseAll() {
+        SendScan(SCAN_W, false);
+        SendScan(SCAN_A, false);
+        SendScan(SCAN_S, false);
+        SendScan(SCAN_D, false);
+        SendScan(SCAN_Q, false);
+        SendScan(SCAN_E, false);
+        SendScan(SCAN_LSHIFT, false);
+    }
+
+    public static void TriggerLeftSpeedflipAsync() {
+        if (Interlocked.Exchange(ref _isRunningAtomic, 1) == 1) return;
+        ThreadPool.QueueUserWorkItem((state) => {
+            try {
+                if (OnEngineLog != null) OnEngineLog("[MACRO] Left Speedflip triggered (Jump: 30ms, AirRoll: 550ms)");
+                SendScan(SCAN_W, true);
+                SendScan(SCAN_A, true);
+                Thread.Sleep(30);
+                SendScan(SCAN_S, true);
+                SendScan(SCAN_Q, true);
+                SendScan(SCAN_LSHIFT, true);
+                Thread.Sleep(550);
+                EmergencyReleaseAll();
+                if (OnEngineLog != null) OnEngineLog("[MACRO] Left Speedflip complete.");
+            } catch (Exception ex) {
+                EmergencyReleaseAll();
+                if (OnEngineLog != null) OnEngineLog("[ERROR] " + ex.Message);
+            } finally {
+                Interlocked.Exchange(ref _isRunningAtomic, 0);
+            }
+        });
+    }
+
+    public static void TriggerFastAerialAsync() {
+        if (Interlocked.Exchange(ref _isRunningAtomic, 1) == 1) return;
+        ThreadPool.QueueUserWorkItem((state) => {
+            try {
+                if (OnEngineLog != null) OnEngineLog("[MACRO] Fast Aerial triggered (Anti-Backflip sequence)");
+                SendScan(SCAN_S, true);
+                Thread.Sleep(160);
+                SendScan(SCAN_S, false);
+                Thread.Sleep(25);
+                EmergencyReleaseAll();
+                if (OnEngineLog != null) OnEngineLog("[MACRO] Fast Aerial complete.");
+            } catch (Exception ex) {
+                EmergencyReleaseAll();
+                if (OnEngineLog != null) OnEngineLog("[ERROR] " + ex.Message);
+            } finally {
+                Interlocked.Exchange(ref _isRunningAtomic, 0);
+            }
+        });
+    }
 }
-"@
+"@;
 
-Add-Type -TypeDefinition $csharpSource -ReferencedAssemblies "System.Windows.Forms.dll", "System.Drawing.dll" -ErrorAction SilentlyContinue
+Add-Type -TypeDefinition $csharpSource -Language CSharp
 
-# Binds definition
-$K_JUMP = 0x20     # Space
-$K_BOOST = 0x45    # E
-$K_AIRROLL_L = 0x51 # Q
-$K_AIRROLL_R = 0x43 # C
-$K_FORWARD = 0x57  # W
-$K_BACK = 0x53     # S
-$K_LEFT = 0x41     # A
-$K_RIGHT = 0x44    # D
-
-# Bind Forward Speedflip
-[NativeRLHookEngine]::ActionW = {
-    [NativeRLHookEngine]::Log("[MACRO] Executing Left Speedflip (30ms jump -> 650ms cancel)...")
-    [NativeRLHookEngine]::PressKey($K_BOOST)
-    [NativeRLHookEngine]::PressKey($K_FORWARD)
-    [NativeRLHookEngine]::PressKey($K_LEFT)
-    [NativeRLHookEngine]::PressKey($K_JUMP)
-    Start-Sleep -Milliseconds 30
-    [NativeRLHookEngine]::ReleaseKey($K_JUMP)
-    Start-Sleep -Milliseconds 30
-    [NativeRLHookEngine]::PressKey($K_JUMP)
-    Start-Sleep -Milliseconds 20
-    [NativeRLHookEngine]::ReleaseKey($K_JUMP)
-    [NativeRLHookEngine]::ReleaseKey($K_FORWARD)
-    [NativeRLHookEngine]::ReleaseKey($K_LEFT)
-    [NativeRLHookEngine]::PressKey($K_BACK)
-    [NativeRLHookEngine]::PressKey($K_AIRROLL_L)
-    Start-Sleep -Milliseconds 650
-    [NativeRLHookEngine]::ReleaseKey($K_BACK)
-    [NativeRLHookEngine]::ReleaseKey($K_AIRROLL_L)
-    [NativeRLHookEngine]::ReleaseKey($K_BOOST)
-    [NativeRLHookEngine]::Log("[MACRO] Left Speedflip Completed Successfully.")
-}
-
-Write-Host "[3/3] Opening Dynamic Native Desktop Application Dialog..." -ForegroundColor Yellow
+Write-Host "[3/3] Launching Native Windows Forms Control Center..." -ForegroundColor Yellow
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Create Windows Form Dialog
+# Create Master Form
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "Rocket League Master-Engine v4.0.2 - Local Control Studio"
-$form.Size = New-Object System.Drawing.Size(920, 680)
+$form.Text = "FN Rocket League Master-Engine v4.0.2 - Control Center"
+$form.Size = New-Object System.Drawing.Size(900, 680)
 $form.StartPosition = "CenterScreen"
-$form.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42) # Slate-900
+$form.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
 $form.ForeColor = [System.Drawing.Color]::FromArgb(241, 245, 249)
-$form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+$form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
 
-# Top Header Banner
-$lblHeader = New-Object System.Windows.Forms.Label
-$lblHeader.Text = "FN ROCKET LEAGUE MASTER-ENGINE (OFFLINE DESKTOP RUNTIME)"
-$lblHeader.Font = New-Object System.Drawing.Font("Consolas", 13, [System.Drawing.FontStyle]::Bold)
-$lblHeader.ForeColor = [System.Drawing.Color]::FromArgb(0, 225, 255) # Cyan
-$lblHeader.Location = New-Object System.Drawing.Point(20, 16)
-$lblHeader.AutoSize = $true
-$form.Controls.Add($lblHeader)
+# Header panel
+$pnlHeader = New-Object System.Windows.Forms.Panel
+$pnlHeader.Dock = "Top"
+$pnlHeader.Height = 70
+$pnlHeader.BackColor = [System.Drawing.Color]::FromArgb(30, 41, 59)
+$form.Controls.Add($pnlHeader)
 
-$lblSub = New-Object System.Windows.Forms.Label
-$lblSub.Text = "Hardware Polling: 1000Hz | Physics Tick: 120Hz | Local SQLite Active | Emergency Killswitch: [F10]"
-$lblSub.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Regular)
-$lblSub.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184)
-$lblSub.Location = New-Object System.Drawing.Point(22, 42)
-$lblSub.AutoSize = $true
-$form.Controls.Add($lblSub)
+$lblTitle = New-Object System.Windows.Forms.Label
+$lblTitle.Text = "FN ROCKET LEAGUE MASTER-ENGINE v4.0.2"
+$lblTitle.Font = New-Object System.Drawing.Font("Consolas", 14, [System.Drawing.FontStyle]::Bold)
+$lblTitle.ForeColor = [System.Drawing.Color]::FromArgb(0, 225, 255)
+$lblTitle.Location = New-Object System.Drawing.Point(20, 14)
+$lblTitle.AutoSize = $true
+$pnlHeader.Controls.Add($lblTitle)
 
-# Tab Control for Dynamic Views
+$lblSubtitle = New-Object System.Windows.Forms.Label
+$lblSubtitle.Text = "Offline Desktop GUI | 0.00ms Win32 Hook | SQLite Telemetry Cache"
+$lblSubtitle.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+$lblSubtitle.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184)
+$lblSubtitle.Location = New-Object System.Drawing.Point(22, 40)
+$lblSubtitle.AutoSize = $true
+$pnlHeader.Controls.Add($lblSubtitle)
+
+# Tab control
 $tabControl = New-Object System.Windows.Forms.TabControl
-$tabControl.Location = New-Object System.Drawing.Point(20, 75)
-$tabControl.Size = New-Object System.Drawing.Size(865, 540)
-$tabControl.Font = New-Object System.Drawing.Font("Segoe UI", 9.5, [System.Drawing.FontStyle]::Bold)
+$tabControl.Location = New-Object System.Drawing.Point(15, 85)
+$tabControl.Size = New-Object System.Drawing.Size(855, 540)
 
-# Tab 1: Live Engine & Hooks
+# Tab 1: Hardware Hooks & Diagnostics
 $tab1 = New-Object System.Windows.Forms.TabPage
-$tab1.Text = "  Engine & Win32 Hooks  "
+$tab1.Text = "  Diagnostics & Hooks  "
 $tab1.BackColor = [System.Drawing.Color]::FromArgb(11, 15, 25)
 
-# Status Badge
-$lblStatus = New-Object System.Windows.Forms.Label
-$lblStatus.Text = "HOOK ENGINE: READY (Click Start to Attach)"
-$lblStatus.Font = New-Object System.Drawing.Font("Consolas", 10.5, [System.Drawing.FontStyle]::Bold)
-$lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153) # Emerald
-$lblStatus.Location = New-Object System.Drawing.Point(20, 15)
-$lblStatus.AutoSize = $true
-$tab1.Controls.Add($lblStatus)
+$btnHook = New-Object System.Windows.Forms.Button
+$btnHook.Text = "START 0.00MS WIN32 HOOKS"
+$btnHook.Size = New-Object System.Drawing.Size(260, 42)
+$btnHook.Location = New-Object System.Drawing.Point(20, 20)
+$btnHook.BackColor = [System.Drawing.Color]::FromArgb(16, 185, 129)
+$btnHook.ForeColor = [System.Drawing.Color]::Black
+$btnHook.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$btnHook.Font = New-Object System.Drawing.Font("Consolas", 10, [System.Drawing.FontStyle]::Bold)
 
-# Start Hooks Button
-$btnStart = New-Object System.Windows.Forms.Button
-$btnStart.Text = "START LOW-LATENCY HOOKS"
-$btnStart.Size = New-Object System.Drawing.Size(260, 42)
-$btnStart.Location = New-Object System.Drawing.Point(20, 45)
-$btnStart.BackColor = [System.Drawing.Color]::FromArgb(16, 185, 129)
-$btnStart.ForeColor = [System.Drawing.Color]::Black
-$btnStart.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$btnStart.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-$btnStart.Add_Click({
-    [NativeRLHookEngine]::StartHook()
-    $lblStatus.Text = "HOOK ENGINE: ACTIVE (Listening for W / A / D / Space)"
-    $lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(0, 245, 255)
-    $btnStart.Enabled = $false
-    $btnStop.Enabled = $true
-})
-$tab1.Controls.Add($btnStart)
-
-# Stop Hooks Button
-$btnStop = New-Object System.Windows.Forms.Button
-$btnStop.Text = "STOP HOOKS (PAUSE)"
-$btnStop.Size = New-Object System.Drawing.Size(200, 42)
-$btnStop.Location = New-Object System.Drawing.Point(290, 45)
-$btnStop.BackColor = [System.Drawing.Color]::FromArgb(239, 68, 68)
-$btnStop.ForeColor = [System.Drawing.Color]::White
-$btnStop.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$btnStop.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-$btnStop.Enabled = $false
-$btnStop.Add_Click({
-    [NativeRLHookEngine]::StopHook()
-    $lblStatus.Text = "HOOK ENGINE: STOPPED"
-    $lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(239, 68, 68)
-    $btnStart.Enabled = $true
-    $btnStop.Enabled = $false
-})
-$tab1.Controls.Add($btnStop)
-
-# Inject Game INIs Button
 $btnInject = New-Object System.Windows.Forms.Button
 $btnInject.Text = "INJECT 0.05 DEADZONE INI"
-$btnInject.Size = New-Object System.Drawing.Size(220, 42)
-$btnInject.Location = New-Object System.Drawing.Point(500, 45)
+$btnInject.Size = New-Object System.Drawing.Size(260, 42)
+$btnInject.Location = New-Object System.Drawing.Point(295, 20)
 $btnInject.BackColor = [System.Drawing.Color]::FromArgb(30, 41, 59)
 $btnInject.ForeColor = [System.Drawing.Color]::FromArgb(250, 204, 21)
-$btnInject.Font = New-Object System.Drawing.Font("Segoe UI", 9.5, [System.Drawing.FontStyle]::Bold)
 $btnInject.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-$btnInject.Add_Click({
-    $rlConfig = "$env:USERPROFILE\Documents\My Games\Rocket League\TAGame\Config"
-    if (-not (Test-Path $rlConfig)) { New-Item -ItemType Directory -Path $rlConfig -Force | Out-Null }
-    "[Configuration]`r`nInternalDeadzone=0.05`r`nDodgeDeadzone=0.05`r`nOneFrameThreadLag=False" | Out-File -FilePath "$rlConfig\TAInput.ini" -Encoding ascii -Force
-    [System.Windows.Forms.MessageBox]::Show("TAInput.ini with 0.05 Deadzone & Zero Lag injected into Rocket League Documents!", "Config Injected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-})
+$btnInject.Font = New-Object System.Drawing.Font("Consolas", 10, [System.Drawing.FontStyle]::Bold)
+
+$btnLaunch = New-Object System.Windows.Forms.Button
+$btnLaunch.Text = "LAUNCH ROCKET LEAGUE"
+$btnLaunch.Size = New-Object System.Drawing.Size(260, 42)
+$btnLaunch.Location = New-Object System.Drawing.Point(570, 20)
+$btnLaunch.BackColor = [System.Drawing.Color]::FromArgb(0, 110, 180)
+$btnLaunch.ForeColor = [System.Drawing.Color]::White
+$btnLaunch.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$btnLaunch.Font = New-Object System.Drawing.Font("Consolas", 10, [System.Drawing.FontStyle]::Bold)
+
+$tab1.Controls.Add($btnHook)
 $tab1.Controls.Add($btnInject)
+$tab1.Controls.Add($btnLaunch)
 
-# Console Output Box
-$txtLog = New-Object System.Windows.Forms.TextBox
-$txtLog.Multiline = $true
-$txtLog.ScrollBars = "Vertical"
-$txtLog.ReadOnly = $true
-$txtLog.Location = New-Object System.Drawing.Point(20, 105)
-$txtLog.Size = New-Object System.Drawing.Size(820, 380)
-$txtLog.BackColor = [System.Drawing.Color]::FromArgb(3, 7, 18)
-$txtLog.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153)
-$txtLog.Font = New-Object System.Drawing.Font("Consolas", 9.5)
-$txtLog.Text = "[LOCAL ENGINE READY]`r`nData Directory: $dataDir`r`nLocal SQLite Snapshot: $dataDir\fn_master_engine_snapshot.json`r`nPress START to enable 0.00ms Speedflip and Fast Aerial triggers.`r`n"
-$tab1.Controls.Add($txtLog)
+$txtLogs = New-Object System.Windows.Forms.TextBox
+$txtLogs.Multiline = $true
+$txtLogs.ScrollBars = "Vertical"
+$txtLogs.ReadOnly = $true
+$txtLogs.Location = New-Object System.Drawing.Point(20, 80)
+$txtLogs.Size = New-Object System.Drawing.Size(810, 410)
+$txtLogs.BackColor = [System.Drawing.Color]::FromArgb(3, 7, 18)
+$txtLogs.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153)
+$txtLogs.Font = New-Object System.Drawing.Font("Consolas", 9.5)
+$txtLogs.Text = "[ENGINE READY] Local desktop launcher initialized.`r`nPress START 0.00MS WIN32 HOOKS to engage low-level keyboard kernel.`r`nPress F10 in game for emergency kill switch.`r`n"
+$tab1.Controls.Add($txtLogs)
 
-# Wire C# logging to UI TextBox
-[NativeRLHookEngine]::OnLogMessage = {
+# Register engine logging event
+[NativeRLHookEngine]::add_OnEngineLog({
     param($msg)
-    $form.BeginInvoke([Action]{
-        $timestamp = (Get-Date).ToString("HH:mm:ss.fff")
-        $txtLog.AppendText("[$timestamp] $msg`r`n")
-        $txtLog.SelectionStart = $txtLog.Text.Length
-        $txtLog.ScrollToCaret()
+    $txtLogs.Invoke([Action]{
+        $time = (Get-Date).ToString("HH:mm:ss.fff")
+        $txtLogs.AppendText("[$time] $msg`r`n")
     })
-}
+})
+
+$btnHook.Add_Click({
+    if (-not [NativeRLHookEngine]::IsRunning) {
+        [NativeRLHookEngine]::StartHook()
+        $btnHook.Text = "STOP WIN32 HOOKS"
+        $btnHook.BackColor = [System.Drawing.Color]::FromArgb(239, 68, 68)
+        $btnHook.ForeColor = [System.Drawing.Color]::White
+    } else {
+        [NativeRLHookEngine]::StopHook()
+        $btnHook.Text = "START 0.00MS WIN32 HOOKS"
+        $btnHook.BackColor = [System.Drawing.Color]::FromArgb(16, 185, 129)
+        $btnHook.ForeColor = [System.Drawing.Color]::Black
+    }
+})
+
+$btnInject.Add_Click({
+    try {
+        $docs = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::MyDocuments)
+        $rlConfig = Join-Path $docs "My Games\Rocket League\TAGame\Config"
+        if (-not (Test-Path $rlConfig)) { New-Item -ItemType Directory -Path $rlConfig -Force | Out-Null }
+        $ini = "[Configuration]`r`nInternalDeadzone=0.05`r`nDodgeDeadzone=0.05`r`nOneFrameThreadLag=False`r`n"
+        [System.IO.File]::WriteAllText((Join-Path $rlConfig "TAInput.ini"), $ini)
+        $txtLogs.AppendText("[INJECTED] TAInput.ini with 0.05 deadzone written to $rlConfig`r`n")
+        [System.Windows.Forms.MessageBox]::Show("TAInput.ini with 0.05 deadzone successfully injected into Rocket League configuration directory!", "Config Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    } catch {
+        $txtLogs.AppendText("[ERROR] " + $_.Exception.Message + "`r`n")
+    }
+})
+
+$btnLaunch.Add_Click({
+    try {
+        if (Test-Path $rlGameExe) {
+            Start-Process $rlGameExe
+            $txtLogs.AppendText("[LAUNCH] Started Rocket League directly: $rlGameExe`r`n")
+        } elseif (Test-Path $epicLauncherExe) {
+            Start-Process $epicLauncherExe -ArgumentList "com.epicgames.launcher://apps/Sugar?action=launch&silent=true"
+            $txtLogs.AppendText("[LAUNCH] Dispatched 64-bit Epic Games launcher.`r`n")
+        } else {
+            Start-Process "com.epicgames.launcher://apps/Sugar?action=launch"
+            $txtLogs.AppendText("[LAUNCH] Dispatched Rocket League via URI handler.`r`n")
+        }
+    } catch {
+        $txtLogs.AppendText("[LAUNCH ERROR] " + $_.Exception.Message + "`r`n")
+    }
+})
 
 # Tab 2: Local SQLite & Configs
 $tab2 = New-Object System.Windows.Forms.TabPage

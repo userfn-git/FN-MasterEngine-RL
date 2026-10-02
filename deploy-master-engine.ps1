@@ -1,9 +1,10 @@
 # ==============================================================================
 # FN ROCKET LEAGUE MASTER-ENGINE: DEPLOYMENT PIPELINE
-# Script: deploy-master-engine.ps1
+# File: deploy-master-engine.ps1
 # Output Executable: C:\FN-MasterEngine-RL\MasterEngine.exe
-# Epic Games Path: C:\Program Files\Epic Games (64-bit validated)
-# Encoding: Strict 100% ASCII Only (Cross-Shell Safe, Zero Non-ASCII Characters)
+# Target Platform: Windows 64-bit (PowerShell 5.1+ / .NET Framework 4.x)
+# Base Epic Games Path: C:\Program Files\Epic Games
+# Encoding: Strict 100% ASCII Only (Zero Unicode / No Non-English Characters)
 # ==============================================================================
 
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
@@ -22,28 +23,53 @@ Write-Host "   FN ROCKET LEAGUE MASTER-ENGINE: PRODUCTION DEPLOY      " -Foregro
 Write-Host "   Target Directory: $projectRoot                         " -ForegroundColor Yellow
 Write-Host "==========================================================" -ForegroundColor Cyan
 
-# 1. Clean previous build if it exists
+# 1. Clean previous builds and temporary compilation artifacts
 $targetExe = Join-Path $projectRoot "MasterEngine.exe"
-if (Test-Path $targetExe) {
-    Write-Host "[1/5] Removing previous MasterEngine.exe build..." -ForegroundColor Yellow
-    Remove-Item -Path $targetExe -Force -ErrorAction SilentlyContinue
-    Write-Host "[OK] Previous build removed for clean execution." -ForegroundColor Green
-} else {
-    Write-Host "[1/5] No previous MasterEngine.exe found. Clean state verified." -ForegroundColor Green
-}
+$legacyExe = Join-Path $projectRoot "FN_RocketLeague_MasterEngine.exe"
+$launcherScript = Join-Path $projectRoot "MasterEngineLauncher.ps1"
 
-# 2. Verify C:\Program Files\Epic Games exists
+Write-Host "[1/5] Performing clean state verification and file cleanup..." -ForegroundColor Yellow
+
+$artifactsToClean = @(
+    $targetExe,
+    $legacyExe,
+    $launcherScript,
+    (Join-Path $projectRoot "MasterEngine.pdb"),
+    (Join-Path $projectRoot "*.tmp")
+)
+
+foreach ($artifact in $artifactsToClean) {
+    if (Test-Path $artifact) {
+        Remove-Item -Path $artifact -Force -Recurse -ErrorAction SilentlyContinue
+        Write-Host "      Removed stale artifact: $artifact" -ForegroundColor DarkGray
+    }
+}
+Write-Host "[OK] Workspace cleanup completed." -ForegroundColor Green
+
+# 2. Logical validation of Epic Games installation path
 $epicGamesBase = "C:\Program Files\Epic Games"
-Write-Host "[2/5] Validating Epic Games directory ($epicGamesBase)..." -ForegroundColor Yellow
+$epicLauncherExe = Join-Path $epicGamesBase "Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe"
+$rlGameExe = Join-Path $epicGamesBase "rocketleague\Binaries\Win64\RocketLeague.exe"
+
+Write-Host "[2/5] Validating Epic Games directory structure..." -ForegroundColor Yellow
+
 if (Test-Path $epicGamesBase) {
-    Write-Host "[OK] Epic Games directory verified." -ForegroundColor Green
+    Write-Host "[OK] Base directory verified: $epicGamesBase" -ForegroundColor Green
+    if (Test-Path $rlGameExe) {
+        Write-Host "     Rocket League 64-bit binary detected: $rlGameExe" -ForegroundColor Green
+    } elseif (Test-Path $epicLauncherExe) {
+        Write-Host "     Epic Games Launcher 64-bit binary detected: $epicLauncherExe" -ForegroundColor Green
+    } else {
+        Write-Host "     Epic Games directory detected (Default launcher path active)." -ForegroundColor DarkYellow
+    }
 } else {
-    Write-Host "[WARN] Standard path not detected; creating directory placeholder..." -ForegroundColor DarkYellow
+    Write-Host "[WARN] Standard path not detected at $epicGamesBase." -ForegroundColor DarkYellow
+    Write-Host "       Creating directory structure placeholder for local injection..." -ForegroundColor DarkYellow
     New-Item -ItemType Directory -Path $epicGamesBase -Force | Out-Null
 }
 
-# 3. Create Clean Launcher Source Script for PS2EXE
-$launcherScript = Join-Path $projectRoot "MasterEngineLauncher.ps1"
+# 3. Generate standalone runner source script
+Write-Host "[3/5] Generating standalone launcher source script..." -ForegroundColor Yellow
 
 $runnerScript = @'
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
@@ -177,17 +203,17 @@ $btnLaunch.Add_Click({
 '@
 
 [System.IO.File]::WriteAllText($launcherScript, $runnerScript, [System.Text.Encoding]::ASCII)
-Write-Host "[3/5] Standalone launcher source generated." -ForegroundColor Green
+Write-Host "[OK] Standalone launcher source generated at $launcherScript" -ForegroundColor Green
 
-# 4. Programmatically Check and Configure PS2EXE
-Write-Host "[4/5] Checking for PS2EXE module..." -ForegroundColor Yellow
+# 4. Programmatically check and configure PS2EXE
+Write-Host "[4/5] Checking for PS2EXE compilation module..." -ForegroundColor Yellow
 
 $ps2exeReady = $false
 if (Get-Command ps2exe -ErrorAction SilentlyContinue) {
     $ps2exeReady = $true
 } else {
     try {
-        Write-Host "Installing PS2EXE from PSGallery for current user..." -ForegroundColor Yellow
+        Write-Host "      Installing PS2EXE from PSGallery for CurrentUser..." -ForegroundColor Yellow
         Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue | Out-Null
         Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue | Out-Null
         Install-Module -Name ps2exe -Scope CurrentUser -Force -AllowClobber -ErrorAction SilentlyContinue
@@ -196,15 +222,15 @@ if (Get-Command ps2exe -ErrorAction SilentlyContinue) {
             $ps2exeReady = $true
         }
     } catch {
-        Write-Host "[WARN] Automatic PS2EXE installation notice: $_" -ForegroundColor DarkYellow
+        Write-Host "      [WARN] Automatic PS2EXE install warning: $_" -ForegroundColor DarkYellow
     }
 }
 
-# 5. Build MasterEngine.exe via PS2EXE or Native Compiler Fallback
+# 5. Build MasterEngine.exe via PS2EXE or native compiler fallback
 Write-Host "[5/5] Compiling $targetExe..." -ForegroundColor Yellow
 
 if ($ps2exeReady) {
-    Write-Host "Compiling standalone executable using PS2EXE..." -ForegroundColor Green
+    Write-Host "      Compiling standalone executable using PS2EXE cmdlet..." -ForegroundColor Green
     ps2exe -inputFile $launcherScript `
            -outputFile $targetExe `
            -noConsole `
@@ -216,7 +242,7 @@ if ($ps2exeReady) {
            -runtime40 `
            -x64
 } else {
-    Write-Host "[INFO] Using Microsoft C# compiler (csc.exe) to generate MasterEngine.exe..." -ForegroundColor Yellow
+    Write-Host "      [INFO] PS2EXE not loaded; compiling standalone native executable with Microsoft csc.exe..." -ForegroundColor Yellow
     $csc = "$env:SystemRoot\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
     if (-not (Test-Path $csc)) {
         $csc = "$env:SystemRoot\Microsoft.NET\Framework\v4.0.30319\csc.exe"

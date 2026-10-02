@@ -1,9 +1,17 @@
-# ==============================================================================
-# FN ROCKET LEAGUE MASTER-ENGINE: GIT REPOSITORY CONFIGURATION & PUSH AUTOMATION
-# Script: git-init-fix.ps1
-# Repository: https://github.com/userfn-git/FN-MasterEngine-RL.git
-# Encoding: Pure ASCII / English Only (Cross-Shell Safe, Zero Non-ASCII Characters)
-# ==============================================================================
+<#
+==============================================================================
+FN ROCKET LEAGUE MASTER-ENGINE: GIT REPOSITORY CONFIGURATION & PUSH AUTOMATION
+File: git-init-fix.ps1
+Target Repository: https://github.com/userfn-git/FN-MasterEngine-RL.git
+Encoding: Strict 100% ASCII Only (Zero Unicode / No Non-English Characters)
+==============================================================================
+#>
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $false)]
+    [string]$GitHubToken = ""
+)
 
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
 [Console]::OutputEncoding = [System.Text.Encoding]::ASCII
@@ -21,56 +29,60 @@ Write-Host "   FN MASTER-ENGINE: GIT SETUP & TRACKING REPAIR TOOL     " -Foregro
 Write-Host "   Working Directory: $projectRoot                        " -ForegroundColor Yellow
 Write-Host "==========================================================" -ForegroundColor Cyan
 
-# 1. Reset Environment Variables that cause exit code 66 errors
+# 1. Clean stale Git index locks and reset environment variables
+Write-Host "[1/5] Resetting Git credential prompts and cleaning stale locks..." -ForegroundColor Yellow
+
+$gitLock = Join-Path $projectRoot ".git\index.lock"
+if (Test-Path $gitLock) {
+    Remove-Item -Path $gitLock -Force -ErrorAction SilentlyContinue
+    Write-Host "      Removed stale lock file: $gitLock" -ForegroundColor DarkGray
+}
+
 Remove-Item Env:\GIT_ASKPASS -ErrorAction SilentlyContinue
 Remove-Item Env:\SSH_ASKPASS -ErrorAction SilentlyContinue
 
-# 2. Configure Windows Credential Manager and Default Branch
+# 2. Configure Windows Credential Manager and default branch
 git config --global credential.helper manager
 git config --global init.defaultBranch main
 
-# 3. Initialize Git if not already a repository
+# 3. Initialize Git repository if needed
 if (-not (Test-Path "$projectRoot\.git")) {
-    Write-Host "[1/5] Initializing local Git repository..." -ForegroundColor Yellow
+    Write-Host "[2/5] Initializing local Git repository..." -ForegroundColor Yellow
     git init
 } else {
-    Write-Host "[1/5] Git repository already initialized." -ForegroundColor Green
+    Write-Host "[2/5] Git repository already initialized." -ForegroundColor Green
 }
 
-# 4. Set Remote Origin to https://github.com/userfn-git/FN-MasterEngine-RL.git
-Write-Host "[2/5] Setting remote origin URL..." -ForegroundColor Yellow
+# 4. Set remote origin
+Write-Host "[3/5] Setting remote origin URL..." -ForegroundColor Yellow
 $targetRemote = "https://github.com/userfn-git/FN-MasterEngine-RL.git"
 
 git remote remove origin 2>$null
 git remote add origin $targetRemote
 Write-Host "[OK] Remote origin set to: $targetRemote" -ForegroundColor Green
 
-# 5. Reset Branch to main
-Write-Host "[3/5] Setting branch name to main..." -ForegroundColor Yellow
+# 5. Set branch name to main
+Write-Host "[4/5] Setting active branch to main..." -ForegroundColor Yellow
 git branch -M main
 
-# 6. Stage and Commit Uncommitted Files
-Write-Host "[4/5] Staging files and creating commit..." -ForegroundColor Yellow
+# 6. Stage and commit uncommitted files
+Write-Host "[5/5] Staging files and creating commit..." -ForegroundColor Yellow
 git add .
 $commitStatus = git status --porcelain
 if ($commitStatus) {
     git commit -m "feat: synchronize master engine standalone release and sqlite database"
     Write-Host "[OK] Changes committed to main." -ForegroundColor Green
 } else {
-    Write-Host "[OK] Working tree clean; ready to push." -ForegroundColor Green
+    Write-Host "[OK] Working tree clean; ready for sync." -ForegroundColor Green
 }
 
-# 7. Push to GitHub with Tracking
-Write-Host "[5/5] Pushing to origin/main and configuring upstream tracking..." -ForegroundColor Yellow
-
-# Check if token is passed as argument or prompt securely in ASCII
-param(
-    [string]$GitHubToken = ""
-)
+# 7. Push to GitHub with upstream tracking
+Write-Host "Synchronizing with origin/main..." -ForegroundColor Yellow
 
 if ($GitHubToken -and $GitHubToken.Trim() -ne "") {
     Write-Host "Authenticating with provided Personal Access Token..." -ForegroundColor Green
-    $authedRemote = "https://$($GitHubToken.Trim())@github.com/userfn-git/FN-MasterEngine-RL.git"
+    $cleanToken = $GitHubToken.Trim()
+    $authedRemote = "https://$cleanToken@github.com/userfn-git/FN-MasterEngine-RL.git"
     git push -u $authedRemote main -f
 } else {
     try {
@@ -78,7 +90,7 @@ if ($GitHubToken -and $GitHubToken.Trim() -ne "") {
     } catch {
         Write-Host ""
         Write-Host "----------------------------------------------------------" -ForegroundColor Yellow
-        Write-Host "To push using your GitHub Token directly, run:" -ForegroundColor Cyan
+        Write-Host "To push using your GitHub Token directly, execute:" -ForegroundColor Cyan
         Write-Host '.\git-init-fix.ps1 -GitHubToken "YOUR_GITHUB_TOKEN_HERE"' -ForegroundColor White
         Write-Host "----------------------------------------------------------" -ForegroundColor Yellow
     }
