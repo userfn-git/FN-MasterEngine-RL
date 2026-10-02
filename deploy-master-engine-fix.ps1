@@ -30,6 +30,14 @@ Write-Host "==========================================================" -Foregro
 # ------------------------------------------------------------------------------
 Write-Host "[1/5] Removing legacy build files and temporary artifacts..." -ForegroundColor Yellow
 
+# Terminate active engine processes to release Windows file locks
+$activeProcs = Get-Process -Name "MasterEngine", "FN_RocketLeague_MasterEngine" -ErrorAction SilentlyContinue
+if ($activeProcs) {
+    Write-Host "      Terminating active MasterEngine instance to release Windows file lock..." -ForegroundColor DarkYellow
+    $activeProcs | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 700
+}
+
 $legacyBuildFiles = @(
     (Join-Path $projectRoot "MasterEngine.exe"),
     (Join-Path $projectRoot "FN_RocketLeague_MasterEngine.exe"),

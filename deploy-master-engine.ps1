@@ -30,6 +30,14 @@ $launcherScript = Join-Path $projectRoot "MasterEngineLauncher.ps1"
 
 Write-Host "[1/5] Performing clean state verification and file cleanup..." -ForegroundColor Yellow
 
+# Terminate active engine processes to release Windows file locks
+$activeProcs = Get-Process -Name "MasterEngine", "FN_RocketLeague_MasterEngine" -ErrorAction SilentlyContinue
+if ($activeProcs) {
+    Write-Host "      Terminating active MasterEngine instance to release Windows file lock..." -ForegroundColor DarkYellow
+    $activeProcs | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 700
+}
+
 $artifactsToClean = @(
     $targetExe,
     $legacyExe,
