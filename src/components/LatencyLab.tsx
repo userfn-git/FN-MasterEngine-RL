@@ -20,12 +20,14 @@ import {
   ArrowUpRight,
   TrendingDown,
   Gauge,
-  BarChart3
+  BarChart3,
+  Sliders
 } from 'lucide-react';
 import { MacroConfig } from '../types';
 import { PhysicsProfiler } from './PhysicsProfiler';
 import { HardwareLatencyCalibrator } from './HardwareLatencyCalibrator';
 import { MacroBenchmarkRunner } from './MacroBenchmarkRunner';
+import { SwitchProfile } from './SwitchProfile';
 
 interface LatencyLabProps {
   config: MacroConfig;
@@ -45,8 +47,8 @@ interface BenchmarkRecord {
 }
 
 export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }) => {
-  // Main Sub-Tab switcher: 'hardware' | 'calibrator' | 'benchmark' | 'curve' | 'profiler'
-  const [activeTab, setActiveTab] = useState<'hardware' | 'calibrator' | 'benchmark' | 'curve' | 'profiler'>('hardware');
+  // Main Sub-Tab switcher: 'hardware' | 'calibrator' | 'switches' | 'benchmark' | 'curve' | 'profiler'
+  const [activeTab, setActiveTab] = useState<'hardware' | 'calibrator' | 'switches' | 'benchmark' | 'curve' | 'profiler'>('hardware');
 
   // Key press tester state (Curve view)
   const [testLog, setTestLog] = useState<Array<{ key: string; durationMs: number; intervalMs?: number; timestamp: string }>>([]);
@@ -424,6 +426,18 @@ export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }
           >
             <Gauge className="w-3.5 h-3.5 text-amber-400" />
             <span>Hardware Latency Calibrator</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('switches')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+              activeTab === 'switches'
+                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/50 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5 text-rose-400" />
+            <span>Switch Profiles</span>
           </button>
 
           <button
@@ -964,6 +978,11 @@ export const LatencyLab: React.FC<LatencyLabProps> = ({ config, onUpdateConfig }
       {/* VIEW: HARDWARE LATENCY CALIBRATOR */}
       {activeTab === 'calibrator' && (
         <HardwareLatencyCalibrator config={config} onUpdateConfig={onUpdateConfig} />
+      )}
+
+      {/* VIEW: SWITCH PROFILE CALIBRATOR */}
+      {activeTab === 'switches' && (
+        <SwitchProfile config={config} onUpdateConfig={onUpdateConfig} />
       )}
 
       {/* VIEW: MACRO BENCHMARK TOOL */}
