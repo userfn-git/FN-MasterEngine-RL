@@ -230,19 +230,31 @@ if (Get-Command ps2exe -ErrorAction SilentlyContinue) {
 Write-Host "[5/5] Compiling $targetExe..." -ForegroundColor Yellow
 
 if ($ps2exeReady) {
-    Write-Host "      Compiling standalone executable using PS2EXE cmdlet..." -ForegroundColor Green
-    ps2exe -inputFile $launcherScript `
-           -outputFile $targetExe `
-           -noConsole `
-           -title "FN Rocket League Master-Engine" `
-           -description "Competitive Esports Mechanics & Win32 Interop Kernel" `
-           -company "FN Esports" `
-           -product "MasterEngine" `
-           -version "4.0.2.0" `
-           -runtime40 `
-           -x64
-} else {
-    Write-Host "      [INFO] PS2EXE not loaded; compiling standalone native executable with Microsoft csc.exe..." -ForegroundColor Yellow
+    Write-Host "      Compiling standalone executable using PS2EXE..." -ForegroundColor Green
+    try {
+        ps2exe -inputFile $launcherScript `
+               -outputFile $targetExe `
+               -noConsole `
+               -title "FN Rocket League Master-Engine" `
+               -description "Competitive Esports Mechanics & Win32 Interop Kernel" `
+               -company "FN Esports" `
+               -product "MasterEngine" `
+               -version "4.0.2.0" `
+               -x64 -ErrorAction Stop
+    } catch {
+        Write-Host "      [WARN] PS2EXE with metadata threw: $_" -ForegroundColor DarkYellow
+        Write-Host "      Retrying with basic PS2EXE parameters..." -ForegroundColor Yellow
+        try {
+            ps2exe -inputFile $launcherScript -outputFile $targetExe -noConsole -ErrorAction Stop
+        } catch {
+            Write-Host "      [WARN] PS2EXE failed. Falling back to Microsoft csc.exe..." -ForegroundColor DarkYellow
+            $ps2exeReady = $false
+        }
+    }
+}
+
+if (-not (Test-Path $targetExe)) {
+    Write-Host "      [INFO] Compiling standalone native executable with Microsoft csc.exe..." -ForegroundColor Yellow
     $csc = "$env:SystemRoot\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
     if (-not (Test-Path $csc)) {
         $csc = "$env:SystemRoot\Microsoft.NET\Framework\v4.0.30319\csc.exe"
